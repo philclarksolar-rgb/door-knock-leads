@@ -59,6 +59,7 @@ export default function LeadMap({
   const [addressInput, setAddressInput] = useState("");
   const [verifiedAddress, setVerifiedAddress] = useState<any>(null);
   const [otherRepLead, setOtherRepLead] = useState<any>(null);
+  const [, setMapVersion] = useState(0);
 
   const isAdmin = role === "admin" || role === "master_admin";
 
@@ -107,6 +108,10 @@ export default function LeadMap({
         setVerifiedAddress(addr);
       });
 
+      map.on("zoomend moveend", () => {
+        setMapVersion((v) => v + 1);
+      });
+
       navigator.geolocation.getCurrentPosition((pos) => {
         const location = {
           lat: pos.coords.latitude,
@@ -124,6 +129,7 @@ export default function LeadMap({
   useEffect(() => {
     RepLeadMarkers({
       leaflet: leafletRef.current,
+      map: mapRef.current,
       layer: layerRef.current,
       leads: nearbyLeads,
       userLocation,
