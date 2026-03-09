@@ -26,8 +26,9 @@ export default function HomePanels({
   newReminderDate,
   setNewReminderDate,
   setShowCreate,
+  sessionUserId,
+  role,
 }: any) {
-
   const selectedLead = leadData.selectedLead;
 
   function openCreateWithAddress(verifiedAddress: any) {
@@ -59,18 +60,11 @@ export default function HomePanels({
 
       {showMap && (
         <LeadMap
-          leads={leadData.filtered.map((lead: any) => ({
-            id: lead.id,
-            fullName: lead.fullName,
-            address: lead.address,
-            lat: lead.lat,
-            lon: lead.lon,
-            createdAt: lead.createdAt,
-            ownerUserId: lead.ownerUserId,
-            creatorName: lead.creatorName,
-          }))}
+          leads={leadData.filtered}
           onOpenLead={(id: string) => leadData.setSelectedLeadId(id)}
           onPrefillLeadAddress={openCreateWithAddress}
+          sessionUserId={sessionUserId}
+          role={role}
         />
       )}
 
@@ -80,14 +74,7 @@ export default function HomePanels({
       />
 
       <LeadTable
-        leads={leadData.paged.map((lead: any) => ({
-          id: lead.id,
-          fullName: lead.fullName,
-          createdAt: lead.createdAt,
-          reminderDate: lead.reminderDate,
-          isClosed: lead.isClosed,
-          isCancelled: lead.isCancelled,
-        }))}
+        leads={leadData.paged}
         currentPage={leadData.currentPage}
         totalPages={leadData.totalPages}
         onSelectLead={leadData.setSelectedLeadId}
@@ -98,19 +85,7 @@ export default function HomePanels({
       />
 
       <LeadDetails
-        lead={
-          selectedLead
-            ? {
-                ...selectedLead,
-                phone: selectedLead.phone || "",
-                isCancelled: selectedLead.isCancelled || false,
-                createdAt: selectedLead.createdAt || "",
-                roofPhotoPath: selectedLead.roofPhotoPath || null,
-                panelPhotoPath: selectedLead.panelPhotoPath || null,
-                utilityBillPath: selectedLead.utilityBillPath || null,
-              }
-            : null
-        }
+        lead={selectedLead}
         noteText={noteText}
         setNoteText={setNoteText}
         contactMade={contactMade}
@@ -131,22 +106,18 @@ export default function HomePanels({
         }}
         onContactAgain={() => {
           if (!selectedLead) return;
-
           leadData.addContactLog(selectedLead, contactMade);
         }}
         onAddNote={() => {
           if (!selectedLead) return;
-
           leadData.addNote(selectedLead, noteText, () => setNoteText(""));
         }}
         onMarkClosedDeal={() => {
           if (!selectedLead) return;
-
           leadData.markClosedDeal(selectedLead.id);
         }}
         onMarkCancelledDeal={() => {
           if (!selectedLead) return;
-
           leadData.markCancelledDeal(selectedLead.id);
         }}
         onReviveDeal={() => {
@@ -159,7 +130,6 @@ export default function HomePanels({
         }}
         onUpdateLead={(updates: any) => {
           if (!selectedLead) return;
-
           leadData.updateLead({
             ...selectedLead,
             ...updates,
