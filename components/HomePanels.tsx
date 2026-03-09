@@ -81,6 +81,9 @@ export default function HomePanels({
                 phone: leadData.selectedLead.phone || "",
                 isCancelled: leadData.selectedLead.isCancelled || false,
                 createdAt: leadData.selectedLead.createdAt || "",
+                roofPhotoPath: leadData.selectedLead.roofPhotoPath || null,
+                panelPhotoPath: leadData.selectedLead.panelPhotoPath || null,
+                utilityBillPath: leadData.selectedLead.utilityBillPath || null,
               }
             : null
         }
@@ -129,6 +132,14 @@ export default function HomePanels({
             return;
           }
           leadData.reviveDeal(leadData.selectedLead.id, newReminderDate);
+        }}
+        onUpdateLead={(updates: any) => {
+          if (!leadData.selectedLead) return;
+
+          leadData.updateLead({
+            ...leadData.selectedLead,
+            ...updates,
+          });
         }}
         onDeleteLead={() => {
           if (!leadData.selectedLead) return;
