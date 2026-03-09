@@ -25,13 +25,23 @@ export default function HomePanels({
   setContactMade,
   newReminderDate,
   setNewReminderDate,
+  setShowCreate,
 }: any) {
+
   const selectedLead = leadData.selectedLead;
+
+  function openCreateWithAddress(verifiedAddress: any) {
+    setLeadDraft((prev: any) => ({
+      ...prev,
+      addressInput: verifiedAddress.display_name,
+      verifiedAddress,
+    }));
+
+    setShowCreate(true);
+  }
 
   return (
     <>
-      {/* CREATE LEAD */}
-
       {showCreate && (
         <LeadCreator
           leadDraft={leadDraft}
@@ -40,16 +50,12 @@ export default function HomePanels({
         />
       )}
 
-      {/* SEARCH PANEL */}
-
       {showSearch && (
         <SearchPanel
           searchDraft={searchDraft}
           setSearchDraft={setSearchDraft}
         />
       )}
-
-      {/* MAP */}
 
       {showMap && (
         <LeadMap
@@ -61,41 +67,33 @@ export default function HomePanels({
             lon: lead.lon,
             createdAt: lead.createdAt,
           }))}
+          onOpenLead={(id: string) => leadData.setSelectedLeadId(id)}
+          onPrefillLeadAddress={openCreateWithAddress}
         />
       )}
 
-      {/* FOLLOWUPS DASHBOARD */}
-
       <FollowUpDashboard
         leads={leadData.leads}
-        onOpenLead={(id: string) =>
-          leadData.setSelectedLeadId(id)
-        }
+        onOpenLead={(id: string) => leadData.setSelectedLeadId(id)}
       />
-
-      {/* LEAD TABLE */}
 
       <LeadTable
         leads={leadData.paged.map((lead: any) => ({
           id: lead.id,
           fullName: lead.fullName,
           createdAt: lead.createdAt,
+          reminderDate: lead.reminderDate,
           isClosed: lead.isClosed,
+          isCancelled: lead.isCancelled,
         }))}
         currentPage={leadData.currentPage}
         totalPages={leadData.totalPages}
         onSelectLead={leadData.setSelectedLeadId}
-        onPrevPage={() =>
-          setPage((p: number) => Math.max(1, p - 1))
-        }
+        onPrevPage={() => setPage((p: number) => Math.max(1, p - 1))}
         onNextPage={() =>
-          setPage((p: number) =>
-            Math.min(leadData.totalPages, p + 1)
-          )
+          setPage((p: number) => Math.min(leadData.totalPages, p + 1))
         }
       />
-
-      {/* LEAD DETAILS */}
 
       <LeadDetails
         lead={
@@ -107,8 +105,7 @@ export default function HomePanels({
                 createdAt: selectedLead.createdAt || "",
                 roofPhotoPath: selectedLead.roofPhotoPath || null,
                 panelPhotoPath: selectedLead.panelPhotoPath || null,
-                utilityBillPath:
-                  selectedLead.utilityBillPath || null,
+                utilityBillPath: selectedLead.utilityBillPath || null,
               }
             : null
         }
@@ -118,9 +115,7 @@ export default function HomePanels({
         setContactMade={setContactMade}
         newReminderDate={newReminderDate}
         setNewReminderDate={setNewReminderDate}
-        onClose={() =>
-          leadData.setSelectedLeadId(null)
-        }
+        onClose={() => leadData.setSelectedLeadId(null)}
         onSaveReminder={() => {
           if (!selectedLead) return;
 
@@ -135,19 +130,12 @@ export default function HomePanels({
         onContactAgain={() => {
           if (!selectedLead) return;
 
-          leadData.addContactLog(
-            selectedLead,
-            contactMade
-          );
+          leadData.addContactLog(selectedLead, contactMade);
         }}
         onAddNote={() => {
           if (!selectedLead) return;
 
-          leadData.addNote(
-            selectedLead,
-            noteText,
-            () => setNoteText("")
-          );
+          leadData.addNote(selectedLead, noteText, () => setNoteText(""));
         }}
         onMarkClosedDeal={() => {
           if (!selectedLead) return;
@@ -157,9 +145,7 @@ export default function HomePanels({
         onMarkCancelledDeal={() => {
           if (!selectedLead) return;
 
-          leadData.markCancelledDeal(
-            selectedLead.id
-          );
+          leadData.markCancelledDeal(selectedLead.id);
         }}
         onReviveDeal={() => {
           if (!selectedLead || !newReminderDate) {
@@ -167,10 +153,7 @@ export default function HomePanels({
             return;
           }
 
-          leadData.reviveDeal(
-            selectedLead.id,
-            newReminderDate
-          );
+          leadData.reviveDeal(selectedLead.id, newReminderDate);
         }}
         onUpdateLead={(updates: any) => {
           if (!selectedLead) return;
