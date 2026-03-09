@@ -10,6 +10,8 @@ import { Search, Plus, Bell, Clock, Trash2, Database, MapPin, Save, FileText, X,
 
 const PAGE_SIZE = 30;
 const REMINDER_EMAIL = "philclarksolar@gmail.com";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type AddressOption = {
   id: string | number;
@@ -66,6 +68,57 @@ type SearchDraft = {
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function supabaseHeaders() {
+  return {
+    apikey: SUPABASE_ANON_KEY || "",
+    Authorization: `Bearer ${SUPABASE_ANON_KEY || ""}`,
+    "Content-Type": "application/json",
+  };
+}
+
+function mapRowToLead(row: any): Lead {
+  return {
+    id: row.id,
+    fullName: row.full_name || "",
+    phone: row.phone || "",
+    email: row.email || "",
+    utilityBill: row.utility_bill || "no",
+    appointment: row.appointment || "no",
+    noFollowUp: !row.reminder_date,
+    reminderDate: row.reminder_date || "",
+    reminderMode: row.reminder_mode || "email",
+    reminderStatus: row.reminder_status || (row.reminder_date ? "scheduled" : "none"),
+    reminderTarget: row.reminder_target || REMINDER_EMAIL,
+    address: row.address || "",
+    lat: row.lat ?? null,
+    lon: row.lon ?? null,
+    mapsUrl: row.maps_url || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    notes: [],
+    contactLog: [],
+  };
+}
+
+function mapLeadToRow(lead: Lead) {
+  return {
+    full_name: lead.fullName,
+    phone: lead.phone,
+    email: lead.email || null,
+    utility_bill: lead.utilityBill,
+    appointment: lead.appointment,
+    address: lead.address,
+    lat: lead.lat,
+    lon: lead.lon,
+    maps_url: lead.mapsUrl,
+    reminder_date: lead.noFollowUp ? null : lead.reminderDate || null,
+    reminder_mode: lead.reminderMode,
+    reminder_status: lead.noFollowUp ? "none" : lead.reminderStatus,
+    reminder_target: lead.reminderTarget,
+    updated_at: new Date().toISOString(),
+  };
 }
 
 function formatDateTime(value?: string | null) {
@@ -248,6 +301,8 @@ export default function QuickDoorLeadsPage() {
   const [leadDraft, setLeadDraft] = useState<LeadDraft>(defaultLeadDraft());
   const [searchDraft, setSearchDraft] = useState<SearchDraft>(defaultSearchDraft());
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(true);
+  const [dbError, setDbError] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(true);
@@ -267,6 +322,32 @@ export default function QuickDoorLeadsPage() {
       if (saved.searchDraft) setSearchDraft(saved.searchDraft);
       if (saved.page) setPage(saved.page);
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    async function loadLeads() {
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        setDbError("Missing Supabase environment variables.");
+        setLoadingLeads(false);
+        return;
+      }
+      try {
+        setLoadingLeads(true);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=created_at.desc`, {
+          headers: supabaseHeaders(),
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("Could not load leads from Supabase.");
+        const rows = await res.json();
+        setLeads((rows || []).map(mapRowToLead));
+        setDbError("");
+      } catch (err: any) {
+        setDbError(err?.message || "Could not load leads.");
+      } finally {
+        setLoadingLeads(false);
+      }
+    }
+    loadLeads();
   }, []);
 
   useEffect(() => {
@@ -309,24 +390,100 @@ export default function QuickDoorLeadsPage() {
   const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const selectedLead = leads.find((l) => l.id === selectedLeadId) || null;
 
-  function createLead() {
+  async function createLead() {
     if (!leadDraft.fullName.trim() || !leadDraft.phone.trim() || !leadDraft.verifiedAddress || (!leadDraft.noFollowUp && !leadDraft.reminderDate)) return;
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      setDbError("Missing Supabase environment variables.");
+      return;
+    }
     const now = new Date().toISOString();
-    const next: Lead = { id: uid(), fullName: leadDraft.fullName.trim(), phone: leadDraft.phone.trim(), email: leadDraft.email.trim(), utilityBill: leadDraft.utilityBill, appointment: leadDraft.appointment, noFollowUp: leadDraft.noFollowUp, reminderDate: leadDraft.noFollowUp ? "" : leadDraft.reminderDate, reminderMode: "email", reminderStatus: leadDraft.noFollowUp ? "none" : "scheduled", reminderTarget: REMINDER_EMAIL, address: leadDraft.verifiedAddress.display_name, lat: leadDraft.verifiedAddress.lat, lon: leadDraft.verifiedAddress.lon, mapsUrl: leadDraft.verifiedAddress.mapsUrl, createdAt: now, updatedAt: now, notes: [], contactLog: [{ id: uid(), label: "LEAD CREATION", contactMade: true, at: now }] };
-    setLeads((prev) => [next, ...prev]);
-    setLeadDraft(defaultLeadDraft());
-    setPage(1);
-    setSelectedLeadId(next.id);
-    setShowCreate(false);
+    const next: Lead = {
+      id: uid(),
+      fullName: leadDraft.fullName.trim(),
+      phone: leadDraft.phone.trim(),
+      email: leadDraft.email.trim(),
+      utilityBill: leadDraft.utilityBill,
+      appointment: leadDraft.appointment,
+      noFollowUp: leadDraft.noFollowUp,
+      reminderDate: leadDraft.noFollowUp ? "" : leadDraft.reminderDate,
+      reminderMode: "email",
+      reminderStatus: leadDraft.noFollowUp ? "none" : "scheduled",
+      reminderTarget: REMINDER_EMAIL,
+      address: leadDraft.verifiedAddress.display_name,
+      lat: leadDraft.verifiedAddress.lat,
+      lon: leadDraft.verifiedAddress.lon,
+      mapsUrl: leadDraft.verifiedAddress.mapsUrl,
+      createdAt: now,
+      updatedAt: now,
+      notes: [],
+      contactLog: [{ id: uid(), label: "LEAD CREATION", contactMade: true, at: now }],
+    };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+        method: "POST",
+        headers: {
+          ...supabaseHeaders(),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(mapLeadToRow(next)),
+      });
+      if (!res.ok) throw new Error("Could not save lead to Supabase.");
+      const rows = await res.json();
+      const savedLead = mapRowToLead(rows[0]);
+      setLeads((prev) => [savedLead, ...prev]);
+      setLeadDraft(defaultLeadDraft());
+      setPage(1);
+      setSelectedLeadId(savedLead.id);
+      setShowCreate(false);
+      setDbError("");
+    } catch (err: any) {
+      setDbError(err?.message || "Could not save lead.");
+    }
   }
 
-  function updateLead(next: Lead) {
-    setLeads((prev) => prev.map((lead) => (lead.id === next.id ? { ...next, updatedAt: new Date().toISOString() } : lead)));
+  async function updateLead(next: Lead) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      setDbError("Missing Supabase environment variables.");
+      return;
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${next.id}`, {
+        method: "PATCH",
+        headers: {
+          ...supabaseHeaders(),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(mapLeadToRow(next)),
+      });
+      if (!res.ok) throw new Error("Could not update lead.");
+      const rows = await res.json();
+      const updated = mapRowToLead(rows[0]);
+      updated.notes = next.notes;
+      updated.contactLog = next.contactLog;
+      setLeads((prev) => prev.map((lead) => (lead.id === next.id ? updated : lead)));
+      setDbError("");
+    } catch (err: any) {
+      setDbError(err?.message || "Could not update lead.");
+    }
   }
 
-  function deleteLead(id: string) {
-    setLeads((prev) => prev.filter((lead) => lead.id !== id));
-    if (selectedLeadId === id) setSelectedLeadId(null);
+  async function deleteLead(id: string) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      setDbError("Missing Supabase environment variables.");
+      return;
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+        method: "DELETE",
+        headers: supabaseHeaders(),
+      });
+      if (!res.ok) throw new Error("Could not delete lead.");
+      setLeads((prev) => prev.filter((lead) => lead.id !== id));
+      if (selectedLeadId === id) setSelectedLeadId(null);
+      setDbError("");
+    } catch (err: any) {
+      setDbError(err?.message || "Could not delete lead.");
+    }
   }
 
   return (
@@ -338,6 +495,7 @@ export default function QuickDoorLeadsPage() {
               <button onClick={() => setShowCreate(true)} className="rounded-2xl bg-white px-4 py-2 text-slate-900 font-semibold inline-flex items-center gap-2"><Plus className="w-4 h-4" /> ADD NEW LEAD</button>
             </div></div>
           <div className="mt-3 text-xs text-slate-300 inline-flex items-center gap-2"><Save className="w-3 h-3" /> Autosaved every 3 seconds {autosaveAt ? `· last saved ${formatDateTime(autosaveAt)}` : ""}</div>
+          <div className="mt-2 text-xs text-slate-300">{loadingLeads ? "Loading Supabase leads..." : dbError ? dbError : `${leads.length} permanent lead(s) loaded from Supabase`}</div>
         </div>
 
         {showCreate ? <div className="rounded-3xl border bg-white p-5 shadow-sm space-y-4"><div className="font-semibold text-lg">Create Lead</div><AddressAutocompleteField label="Address *" value={leadDraft.addressInput} onValueChange={(v) => setLeadDraft((p) => ({ ...p, addressInput: v, verifiedAddress: p.verifiedAddress?.display_name === v ? p.verifiedAddress : null }))} selected={leadDraft.verifiedAddress} onSelect={(item) => setLeadDraft((p) => ({ ...p, addressInput: item.display_name, verifiedAddress: item }))} placeholder="Start typing the address" /><div className="grid md:grid-cols-2 gap-4"><div><label className="text-sm font-medium">Full Name *</label><input value={leadDraft.fullName} onChange={(e) => setLeadDraft((p) => ({ ...p, fullName: e.target.value }))} className="mt-1 w-full rounded-2xl border px-3 py-2" /></div><div><label className="text-sm font-medium">Phone *</label><input value={leadDraft.phone} onChange={(e) => setLeadDraft((p) => ({ ...p, phone: e.target.value }))} className="mt-1 w-full rounded-2xl border px-3 py-2" /></div><div className="md:col-span-2"><label className="text-sm font-medium">Email</label><input value={leadDraft.email} onChange={(e) => setLeadDraft((p) => ({ ...p, email: e.target.value }))} className="mt-1 w-full rounded-2xl border px-3 py-2" /></div><div><label className="text-sm font-medium">Utility Bill?</label><select value={leadDraft.utilityBill} onChange={(e) => setLeadDraft((p) => ({ ...p, utilityBill: e.target.value }))} className="mt-1 w-full rounded-2xl border px-3 py-2"><option value="yes">Yes</option><option value="no">No</option></select></div><div><label className="text-sm font-medium">Appointment?</label><select value={leadDraft.appointment} onChange={(e) => setLeadDraft((p) => ({ ...p, appointment: e.target.value }))} className="mt-1 w-full rounded-2xl border px-3 py-2"><option value="yes">Yes</option><option value="no">No</option></select></div></div><div className="rounded-2xl bg-slate-50 p-4 space-y-3"><div className="font-medium inline-flex items-center gap-2"><Bell className="w-4 h-4" /> Reminder</div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={leadDraft.noFollowUp} onChange={(e) => setLeadDraft((p) => ({ ...p, noFollowUp: e.target.checked, reminderDate: e.target.checked ? "" : p.reminderDate }))} /> NO FOLLOW-UP</label>{!leadDraft.noFollowUp ? <div><label className="text-sm font-medium">Reminder Date *</label><input type="date" value={leadDraft.reminderDate} onChange={(e) => setLeadDraft((p) => ({ ...p, reminderDate: e.target.value }))} className="mt-1 w-full rounded-2xl border px-3 py-2" /></div> : null}</div><div className="flex justify-end"><button onClick={createLead} className="rounded-2xl bg-slate-900 px-4 py-2 text-white font-semibold">Create Lead</button></div></div> : null}
