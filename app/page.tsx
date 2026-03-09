@@ -149,6 +149,9 @@ export default function QuickDoorLeadsPage() {
           setContactMade={setContactMade}
           newReminderDate={newReminderDate}
           setNewReminderDate={setNewReminderDate}
+          setShowCreate={setShowCreate}
+          sessionUserId={auth.sessionUserId}
+          role={auth.profile?.role}
         />
       </div>
     </div>
