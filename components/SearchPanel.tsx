@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Search, CheckCircle2, ExternalLink } from "lucide-react";
+import { statusFilterOptions, type LeadStatus } from "../lib/leadUtils";
 
 export type AddressOption = {
   id: string | number;
@@ -21,6 +22,7 @@ export type SearchDraft = {
   dateStart: string;
   dateEnd: string;
   includeClosedDeals: boolean;
+  statusFilter: "all" | LeadStatus;
 };
 
 function toDateInputValue(d?: Date | string | null) {
@@ -180,6 +182,27 @@ export default function SearchPanel({
     <div className="space-y-4 rounded-3xl border bg-white p-5 shadow-sm">
       <div className="inline-flex items-center gap-2 text-lg font-semibold">
         <Search className="h-5 w-5" /> Search
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Status</label>
+        <select
+          value={searchDraft.statusFilter}
+          onChange={(e) =>
+            setSearchDraft((p) => ({
+              ...p,
+              statusFilter: e.target.value as any,
+            }))
+          }
+          className="mt-1 w-full rounded-2xl border px-3 py-2"
+        >
+          <option value="all">All statuses</option>
+          {statusFilterOptions().map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
       </div>
 
       <label className="flex items-center gap-2 text-sm">
