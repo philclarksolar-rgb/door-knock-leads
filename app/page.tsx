@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Plus, Save, Search, Shield } from "lucide-react";
+import { LogOut, Plus, Save, Search, Shield, Map } from "lucide-react";
 import LoginForm from "../components/LoginForm";
 import LeadCreator, { type LeadDraft } from "../components/LeadCreator";
 import LeadDetails from "../components/LeadDetails";
 import LeadTable from "../components/LeadTable";
 import SearchPanel, { type SearchDraft } from "../components/SearchPanel";
+import LeadMap from "../components/LeadMap";
 import { useAuthProfile } from "../hooks/useAuthProfile";
 import { useLeadData } from "../hooks/useLeadData";
 import { formatDateTime } from "../lib/leadUtils";
@@ -46,6 +47,7 @@ export default function QuickDoorLeadsPage() {
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [contactMade, setContactMade] = useState("yes");
   const [newReminderDate, setNewReminderDate] = useState("");
@@ -75,7 +77,6 @@ export default function QuickDoorLeadsPage() {
   useEffect(() => {
     const timer = setInterval(() => {
       const snapshot = JSON.stringify({ leadDraft, searchDraft, page });
-
       if (snapshot !== autosaveRef.current) {
         localStorage.setItem("quick-door-leads-draft", snapshot);
         autosaveRef.current = snapshot;
@@ -88,7 +89,6 @@ export default function QuickDoorLeadsPage() {
 
   async function handleCreateLead() {
     const ok = await leadData.createLead(leadDraft);
-
     if (ok) {
       setLeadDraft(defaultLeadDraft());
       setShowCreate(false);
@@ -115,10 +115,8 @@ export default function QuickDoorLeadsPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-
         <div className="rounded-3xl bg-slate-900 p-6 text-white">
           <div className="flex flex-wrap items-center justify-between gap-3">
-
             <div>
               <div className="text-3xl font-bold">QUICK</div>
               <div className="text-slate-300">
@@ -127,13 +125,20 @@ export default function QuickDoorLeadsPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-
               <button
                 onClick={() => setShowSearch((v) => !v)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-200 px-4 py-2 font-semibold text-slate-900"
               >
                 <Search className="h-4 w-4" />
                 {showSearch ? "HIDE SEARCH" : "SEARCH"}
+              </button>
+
+              <button
+                onClick={() => setShowMap((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-200 px-4 py-2 font-semibold text-slate-900"
+              >
+                <Map className="h-4 w-4" />
+                {showMap ? "HIDE MAP" : "MAP"}
               </button>
 
               <button
@@ -161,7 +166,6 @@ export default function QuickDoorLeadsPage() {
                 <LogOut className="h-4 w-4" />
                 SIGN OUT
               </button>
-
             </div>
           </div>
 
@@ -192,6 +196,19 @@ export default function QuickDoorLeadsPage() {
           <SearchPanel
             searchDraft={searchDraft}
             setSearchDraft={setSearchDraft}
+          />
+        )}
+
+        {showMap && (
+          <LeadMap
+            leads={leadData.filtered.map((lead) => ({
+              id: lead.id,
+              fullName: lead.fullName,
+              address: lead.address,
+              lat: lead.lat,
+              lon: lead.lon,
+              createdAt: lead.createdAt,
+            }))}
           />
         )}
 
@@ -260,7 +277,6 @@ export default function QuickDoorLeadsPage() {
             leadData.deleteLead(leadData.selectedLead.id);
           }}
         />
-
       </div>
     </div>
   );
