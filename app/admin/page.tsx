@@ -1,252 +1,151 @@
-"use client";
+"use client"
 
-import React, { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useEffect, useState } from "react"
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export default function AdminPage(){
 
-type ProfileRow = {
-  id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  role: string;
-  is_active: boolean;
-};
+  const [storage,setStorage] = useState<any>(null)
 
-function headers() {
-  return {
-    apikey: SUPABASE_ANON_KEY || "",
-    Authorization: `Bearer ${SUPABASE_ANON_KEY || ""}`,
-    "Content-Type": "application/json",
-  };
-}
+  async function refreshStorage(){
 
-export default function AdminPage() {
+    const res =
+      await fetch("/api/admin/storage-status")
 
-  const [rows,setRows] = useState<ProfileRow[]>([]);
-  const [loading,setLoading] = useState(true);
-  const [authorized,setAuthorized] = useState(false);
+    const data =
+      await res.json()
 
-  const [masterId,setMasterId] = useState<string>("");
+    setStorage(data)
 
-  async function loadUsers() {
+  }
 
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.asc`,
-      { headers: headers(), cache:"no-store" }
-    );
+  async function freezeAttachments(){
 
-    const data = await res.json();
-    setRows(data || []);
+    await fetch(
+      "/api/admin/attachment-control",
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          action:"freeze"
+        })
+      }
+    )
+
+    alert("Attachments frozen")
+
+  }
+
+  async function unfreezeAttachments(){
+
+    await fetch(
+      "/api/admin/attachment-control",
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          action:"unfreeze"
+        })
+      }
+    )
+
+    alert("Attachments unfrozen")
+
+  }
+
+  async function dischargeStorage(){
+
+    await fetch(
+      "/api/admin/storage-clean",
+      {
+        method:"POST"
+      }
+    )
+
+    alert("Cleanup complete")
+
+    refreshStorage()
+
   }
 
   useEffect(()=>{
 
-    async function init(){
+    refreshStorage()
 
-      const {data:{session}} = await supabase.auth.getSession();
+  },[])
 
-      const userId = session?.user?.id;
+  return(
 
-      if(!userId){
-        setLoading(false);
-        return;
-      }
+    <div className="max-w-3xl mx-auto p-6 space-y-8">
 
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
-        { headers: headers() }
-      );
+      <div className="text-2xl font-semibold">
+        Admin Dashboard
+      </div>
 
-      const rows = await res.json();
-      const me = rows?.[0];
+      {/* Storage Meter */}
 
-      if(!me || me.role !== "master_admin"){
-        setLoading(false);
-        return;
-      }
+      {storage && (
 
-      setAuthorized(true);
-      setMasterId(userId);
+        <div className="border rounded-xl p-4 bg-white">
 
-      await loadUsers();
-
-      setLoading(false);
-    }
-
-    init();
-
-  },[]);
-
-  async function disableUser(user:ProfileRow){
-
-    if(user.id === masterId){
-      alert("Master admin cannot be disabled.");
-      return;
-    }
-
-    if(!confirm("Disable user and transfer all leads to you?")){
-      return;
-    }
-
-    await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({is_active:false})
-    });
-
-    await fetch(`${SUPABASE_URL}/rest/v1/leads?owner_user_id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({
-        previous_owner_user_id:user.id,
-        owner_user_id:masterId
-      })
-    });
-
-    await fetch(`${SUPABASE_URL}/rest/v1/notes?owner_user_id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({
-        previous_owner_user_id:user.id,
-        owner_user_id:masterId
-      })
-    });
-
-    await fetch(`${SUPABASE_URL}/rest/v1/contact_log?owner_user_id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({
-        previous_owner_user_id:user.id,
-        owner_user_id:masterId
-      })
-    });
-
-    await loadUsers();
-  }
-
-  async function enableUser(user:ProfileRow){
-
-    if(!confirm("Re-enable user and restore their leads?")){
-      return;
-    }
-
-    await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({is_active:true})
-    });
-
-    await fetch(`${SUPABASE_URL}/rest/v1/leads?previous_owner_user_id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({
-        owner_user_id:user.id,
-        previous_owner_user_id:null
-      })
-    });
-
-    await fetch(`${SUPABASE_URL}/rest/v1/notes?previous_owner_user_id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({
-        owner_user_id:user.id,
-        previous_owner_user_id:null
-      })
-    });
-
-    await fetch(`${SUPABASE_URL}/rest/v1/contact_log?previous_owner_user_id=eq.${user.id}`,{
-      method:"PATCH",
-      headers:{...headers(),Prefer:"return=minimal"},
-      body:JSON.stringify({
-        owner_user_id:user.id,
-        previous_owner_user_id:null
-      })
-    });
-
-    await loadUsers();
-  }
-
-  if(loading) return <div className="p-8">Loading admin...</div>;
-  if(!authorized) return <div className="p-8">Not authorized</div>;
-
-  return (
-
-    <div className="min-h-screen bg-slate-50 p-6">
-
-      <div className="mx-auto max-w-4xl space-y-6">
-
-        <h1 className="text-3xl font-bold">ADMIN</h1>
-
-        <div className="rounded-3xl bg-white shadow-sm overflow-hidden">
-
-          <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b bg-slate-100 px-4 py-3 text-sm font-semibold">
-            <div>Name</div>
-            <div>Phone</div>
-            <div>Role</div>
-            <div>Actions</div>
+          <div className="font-medium mb-2">
+            Storage Usage
           </div>
 
-          {rows.map((row)=>{
-
-            const name = [row.first_name,row.last_name].filter(Boolean).join(" ");
-
-            return(
-
-              <div
-                key={row.id}
-                className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b px-4 py-3 text-sm"
-              >
-
-                <div>{name}</div>
-
-                <div>{row.phone || "—"}</div>
-
-                <div>{row.role}</div>
-
-                <div className="flex gap-2">
-
-                  {row.id !== masterId && row.is_active && (
-
-                    <button
-                      onClick={()=>disableUser(row)}
-                      className="rounded-lg bg-red-500 px-2 py-1 text-white text-xs"
-                    >
-                      Disable
-                    </button>
-
-                  )}
-
-                  {row.id !== masterId && !row.is_active && (
-
-                    <button
-                      onClick={()=>enableUser(row)}
-                      className="rounded-lg bg-green-600 px-2 py-1 text-white text-xs"
-                    >
-                      Re-Enable
-                    </button>
-
-                  )}
-
-                  {row.id === masterId && (
-                    <span className="text-xs text-gray-500">
-                      Master
-                    </span>
-                  )}
-
-                </div>
-
-              </div>
-            )
-          })}
+          <div>
+            {storage.percentUsed}% used
+          </div>
 
         </div>
+
+      )}
+
+      {/* Attachment Controls */}
+
+      <div className="border rounded-xl p-4 bg-white space-y-3">
+
+        <div className="font-medium">
+          Attachment Controls
+        </div>
+
+        <button
+          onClick={freezeAttachments}
+          className="bg-red-600 text-white px-4 py-2 rounded-xl"
+        >
+          Freeze Attachments
+        </button>
+
+        <button
+          onClick={unfreezeAttachments}
+          className="bg-green-600 text-white px-4 py-2 rounded-xl"
+        >
+          Unfreeze Attachments
+        </button>
+
+      </div>
+
+      {/* Cleanup */}
+
+      <div className="border rounded-xl p-4 bg-white space-y-3">
+
+        <div className="font-medium">
+          Storage Cleanup
+        </div>
+
+        <button
+          onClick={dischargeStorage}
+          className="bg-orange-600 text-white px-4 py-2 rounded-xl"
+        >
+          Discharge Cached Data → 90%
+        </button>
 
       </div>
 
     </div>
-  );
+
+  )
+
 }
