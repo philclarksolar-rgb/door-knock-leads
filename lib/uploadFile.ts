@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { attachmentsAllowed } from "./attachmentGuard"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +10,17 @@ export async function uploadFile(
   file: File,
   type: "roof" | "panel" | "bill",
   leadId: string
-) {
+){
+
+  const allowed = await attachmentsAllowed()
+
+  if(!allowed){
+
+    throw new Error(
+      "Attachments are temporarily disabled because storage is nearly full."
+    )
+
+  }
 
   const fileName =
     `${leadId}_${Date.now()}_${file.name}`
@@ -17,21 +28,23 @@ export async function uploadFile(
   const path =
     `${type}/${fileName}`
 
-  const { data, error } =
+  const { error } =
     await supabase.storage
       .from("lead-files")
-      .upload(path, file)
+      .upload(path,file)
 
-  if (error) throw error
+  if(error){
+    throw error
+  }
 
-  const { data: publicUrl } =
+  const { data } =
     supabase.storage
       .from("lead-files")
       .getPublicUrl(path)
 
   return {
     path,
-    url: publicUrl.publicUrl
+    url: data.publicUrl
   }
 
 }
