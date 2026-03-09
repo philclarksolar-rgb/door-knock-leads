@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import LeadCreator from "./LeadCreator";
 import LeadDetails from "./LeadDetails";
 import LeadTable from "./LeadTable";
@@ -25,8 +26,12 @@ export default function HomePanels({
   newReminderDate,
   setNewReminderDate,
 }: any) {
+  const selectedLead = leadData.selectedLead;
+
   return (
     <>
+      {/* CREATE LEAD */}
+
       {showCreate && (
         <LeadCreator
           leadDraft={leadDraft}
@@ -35,12 +40,16 @@ export default function HomePanels({
         />
       )}
 
+      {/* SEARCH PANEL */}
+
       {showSearch && (
         <SearchPanel
           searchDraft={searchDraft}
           setSearchDraft={setSearchDraft}
         />
       )}
+
+      {/* MAP */}
 
       {showMap && (
         <LeadMap
@@ -55,7 +64,16 @@ export default function HomePanels({
         />
       )}
 
-      <FollowUpDashboard leads={leadData.leads} />
+      {/* FOLLOWUPS DASHBOARD */}
+
+      <FollowUpDashboard
+        leads={leadData.leads}
+        onOpenLead={(id: string) =>
+          leadData.setSelectedLeadId(id)
+        }
+      />
+
+      {/* LEAD TABLE */}
 
       <LeadTable
         leads={leadData.paged.map((lead: any) => ({
@@ -67,23 +85,30 @@ export default function HomePanels({
         currentPage={leadData.currentPage}
         totalPages={leadData.totalPages}
         onSelectLead={leadData.setSelectedLeadId}
-        onPrevPage={() => setPage((p: number) => Math.max(1, p - 1))}
+        onPrevPage={() =>
+          setPage((p: number) => Math.max(1, p - 1))
+        }
         onNextPage={() =>
-          setPage((p: number) => Math.min(leadData.totalPages, p + 1))
+          setPage((p: number) =>
+            Math.min(leadData.totalPages, p + 1)
+          )
         }
       />
 
+      {/* LEAD DETAILS */}
+
       <LeadDetails
         lead={
-          leadData.selectedLead
+          selectedLead
             ? {
-                ...leadData.selectedLead,
-                phone: leadData.selectedLead.phone || "",
-                isCancelled: leadData.selectedLead.isCancelled || false,
-                createdAt: leadData.selectedLead.createdAt || "",
-                roofPhotoPath: leadData.selectedLead.roofPhotoPath || null,
-                panelPhotoPath: leadData.selectedLead.panelPhotoPath || null,
-                utilityBillPath: leadData.selectedLead.utilityBillPath || null,
+                ...selectedLead,
+                phone: selectedLead.phone || "",
+                isCancelled: selectedLead.isCancelled || false,
+                createdAt: selectedLead.createdAt || "",
+                roofPhotoPath: selectedLead.roofPhotoPath || null,
+                panelPhotoPath: selectedLead.panelPhotoPath || null,
+                utilityBillPath:
+                  selectedLead.utilityBillPath || null,
               }
             : null
         }
@@ -93,66 +118,80 @@ export default function HomePanels({
         setContactMade={setContactMade}
         newReminderDate={newReminderDate}
         setNewReminderDate={setNewReminderDate}
-        onClose={() => leadData.setSelectedLeadId(null)}
+        onClose={() =>
+          leadData.setSelectedLeadId(null)
+        }
         onSaveReminder={() => {
-          if (!leadData.selectedLead) return;
+          if (!selectedLead) return;
 
           leadData.updateLead({
-            ...leadData.selectedLead,
+            ...selectedLead,
             noFollowUp: false,
             reminderDate:
-              newReminderDate || leadData.selectedLead.reminderDate,
+              newReminderDate || selectedLead.reminderDate,
             reminderStatus: "scheduled",
           });
         }}
         onContactAgain={() => {
-          if (!leadData.selectedLead) return;
-          leadData.addContactLog(leadData.selectedLead, contactMade);
+          if (!selectedLead) return;
+
+          leadData.addContactLog(
+            selectedLead,
+            contactMade
+          );
         }}
         onAddNote={() => {
-          if (!leadData.selectedLead) return;
+          if (!selectedLead) return;
 
           leadData.addNote(
-            leadData.selectedLead,
+            selectedLead,
             noteText,
             () => setNoteText("")
           );
         }}
         onMarkClosedDeal={() => {
-          if (!leadData.selectedLead) return;
-          leadData.markClosedDeal(leadData.selectedLead.id);
+          if (!selectedLead) return;
+
+          leadData.markClosedDeal(selectedLead.id);
         }}
         onMarkCancelledDeal={() => {
-          if (!leadData.selectedLead) return;
-          leadData.markCancelledDeal(leadData.selectedLead.id);
+          if (!selectedLead) return;
+
+          leadData.markCancelledDeal(
+            selectedLead.id
+          );
         }}
         onReviveDeal={() => {
-          if (!leadData.selectedLead || !newReminderDate) {
+          if (!selectedLead || !newReminderDate) {
             alert("Select a follow-up date first.");
             return;
           }
-          leadData.reviveDeal(leadData.selectedLead.id, newReminderDate);
+
+          leadData.reviveDeal(
+            selectedLead.id,
+            newReminderDate
+          );
         }}
         onUpdateLead={(updates: any) => {
-          if (!leadData.selectedLead) return;
+          if (!selectedLead) return;
 
           leadData.updateLead({
-            ...leadData.selectedLead,
+            ...selectedLead,
             ...updates,
           });
         }}
         onDeleteLead={() => {
-          if (!leadData.selectedLead) return;
+          if (!selectedLead) return;
 
           const confirmed = confirm(
             `Delete lead "${
-              leadData.selectedLead.fullName || "this lead"
+              selectedLead.fullName || "this lead"
             }"? This cannot be undone.`
           );
 
           if (!confirmed) return;
 
-          leadData.deleteLead(leadData.selectedLead.id);
+          leadData.deleteLead(selectedLead.id);
         }}
       />
     </>
