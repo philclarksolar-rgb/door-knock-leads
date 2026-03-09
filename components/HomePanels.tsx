@@ -79,6 +79,7 @@ export default function HomePanels({
             ? {
                 ...leadData.selectedLead,
                 phone: leadData.selectedLead.phone || "",
+                isCancelled: leadData.selectedLead.isCancelled || false,
               }
             : null
         }
@@ -116,6 +117,17 @@ export default function HomePanels({
         onMarkClosedDeal={() => {
           if (!leadData.selectedLead) return;
           leadData.markClosedDeal(leadData.selectedLead.id);
+        }}
+        onMarkCancelledDeal={() => {
+          if (!leadData.selectedLead) return;
+          leadData.markCancelledDeal(leadData.selectedLead.id);
+        }}
+        onReviveDeal={() => {
+          if (!leadData.selectedLead || !newReminderDate) {
+            alert("Select a follow-up date first.");
+            return;
+          }
+          leadData.reviveDeal(leadData.selectedLead.id, newReminderDate);
         }}
         onDeleteLead={() => {
           if (!leadData.selectedLead) return;
