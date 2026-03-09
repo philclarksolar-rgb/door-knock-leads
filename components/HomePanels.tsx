@@ -80,6 +80,7 @@ export default function HomePanels({
                 ...leadData.selectedLead,
                 phone: leadData.selectedLead.phone || "",
                 isCancelled: leadData.selectedLead.isCancelled || false,
+                createdAt: leadData.selectedLead.createdAt || "",
               }
             : null
         }
