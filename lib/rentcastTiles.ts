@@ -7,6 +7,6 @@ export function tileCoord(value: number) {
 export function getTile(lat: number, lon: number) {
   return {
     tileLat: tileCoord(lat),
-    tileLon: tileCoord(lon)
+    tileLon: tileCoord(lon),
   };
 }
