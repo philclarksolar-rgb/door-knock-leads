@@ -36,6 +36,7 @@ function defaultSearchDraft(): SearchDraft {
     chronologicalPreset: "today",
     dateStart: "",
     dateEnd: "",
+    includeClosedDeals: false,
   };
 }
 
@@ -217,6 +218,7 @@ export default function QuickDoorLeadsPage() {
             id: lead.id,
             fullName: lead.fullName,
             createdAt: lead.createdAt,
+            isClosed: lead.isClosed,
           }))}
           currentPage={leadData.currentPage}
           totalPages={leadData.totalPages}
@@ -236,6 +238,7 @@ export default function QuickDoorLeadsPage() {
                   address: leadData.selectedLead.address,
                   mapsUrl: leadData.selectedLead.mapsUrl,
                   reminderDate: leadData.selectedLead.reminderDate,
+                  isClosed: leadData.selectedLead.isClosed,
                   contactLog: leadData.selectedLead.contactLog,
                   notes: leadData.selectedLead.notes,
                 }
@@ -271,6 +274,10 @@ export default function QuickDoorLeadsPage() {
               noteText,
               () => setNoteText("")
             );
+          }}
+          onMarkClosedDeal={() => {
+            if (!leadData.selectedLead) return;
+            leadData.markClosedDeal(leadData.selectedLead.id);
           }}
           onDeleteLead={() => {
             if (!leadData.selectedLead) return;
