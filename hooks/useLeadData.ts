@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { LeadDraft } from "../components/LeadCreator";
 import type { SearchDraft } from "../components/SearchPanel";
 import {
+  computeLeadStatus,
   getChronologicalRange,
   haversineMiles,
   mapLeadToRow,
@@ -144,8 +145,12 @@ export function useLeadData({
   const filtered = useMemo(() => {
     let matched = leads;
 
-    if (!searchDraft.includeClosedDeals) {
+    if (!searchDraft.includeClosedDeals && searchDraft.statusFilter !== "Closed Deal") {
       matched = matched.filter((lead) => !lead.isClosed);
+    }
+
+    if (searchDraft.statusFilter !== "all") {
+      matched = matched.filter((lead) => computeLeadStatus(lead) === searchDraft.statusFilter);
     }
 
     if (searchDraft.type === "specific") {
@@ -237,6 +242,7 @@ export function useLeadData({
       createdAt: now,
       updatedAt: now,
       isClosed: false,
+      statusLastChangedAt: now,
       ownerUserId: sessionUserId,
       notes: [],
       contactLog: [],
@@ -333,7 +339,11 @@ export function useLeadData({
   async function markClosedDeal(id: string) {
     const lead = leads.find((l) => l.id === id);
     if (!lead) return;
-    await updateLead({ ...lead, isClosed: true });
+    await updateLead({
+      ...lead,
+      isClosed: true,
+      statusLastChangedAt: new Date().toISOString(),
+    });
   }
 
   async function deleteLead(id: string) {
