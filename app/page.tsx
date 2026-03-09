@@ -56,6 +56,7 @@ export default function QuickDoorLeadsPage() {
   const leadData = useLeadData({
     sessionUserId: auth.sessionUserId,
     role: auth.profile?.role,
+    profileName: auth.profile?.display_name,
     searchDraft,
     page,
     setPage,
