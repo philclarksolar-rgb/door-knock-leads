@@ -148,6 +148,8 @@ export default function HomePanels({
 
           leadData.deleteLead(selectedLead.id);
         }}
+        sessionUserId={sessionUserId}
+        role={role}
       />
     </>
   );
