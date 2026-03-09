@@ -22,6 +22,7 @@ export type LeadDetailsLead = {
   address: string;
   mapsUrl: string | null;
   reminderDate: string;
+  isClosed: boolean;
   contactLog: ContactEntry[];
   notes: NoteEntry[];
 };
@@ -48,6 +49,7 @@ export default function LeadDetails({
   onContactAgain,
   onAddNote,
   onDeleteLead,
+  onMarkClosedDeal,
 }: {
   lead: LeadDetailsLead | null;
   noteText: string;
@@ -61,13 +63,21 @@ export default function LeadDetails({
   onContactAgain: () => void;
   onAddNote: () => void;
   onDeleteLead: () => void;
+  onMarkClosedDeal: () => void;
 }) {
   if (!lead) return null;
 
   return (
     <div className="space-y-4 rounded-3xl border bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className="text-lg font-semibold">{lead.fullName}</div>
+        <div className="text-lg font-semibold">
+          {lead.fullName}
+          {lead.isClosed ? (
+            <span className="ml-2 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+              Closed Deal
+            </span>
+          ) : null}
+        </div>
         <button onClick={onClose} className="rounded-full p-2 hover:bg-slate-100">
           <X className="h-4 w-4" />
         </button>
@@ -89,6 +99,17 @@ export default function LeadDetails({
           </a>
         ) : null}
       </div>
+
+      {!lead.isClosed ? (
+        <div className="rounded-2xl border p-4">
+          <button
+            onClick={onMarkClosedDeal}
+            className="rounded-2xl bg-green-600 px-4 py-2 text-white"
+          >
+            MARK AS CLOSED DEAL
+          </button>
+        </div>
+      ) : null}
 
       <div className="space-y-3 rounded-2xl border p-4">
         <div className="inline-flex items-center gap-2 font-medium">
