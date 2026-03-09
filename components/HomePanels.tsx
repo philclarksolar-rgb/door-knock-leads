@@ -55,11 +55,7 @@ export default function HomePanels({
         />
       )}
 
-      {/* FOLLOW-UP DASHBOARD */}
-
       <FollowUpDashboard leads={leadData.leads} />
-
-      {/* LEAD TABLE */}
 
       <LeadTable
         leads={leadData.paged.map((lead: any) => ({
@@ -77,10 +73,15 @@ export default function HomePanels({
         }
       />
 
-      {/* LEAD DETAILS */}
-
       <LeadDetails
-        lead={leadData.selectedLead}
+        lead={
+          leadData.selectedLead
+            ? {
+                ...leadData.selectedLead,
+                phone: leadData.selectedLead.phone || "",
+              }
+            : null
+        }
         noteText={noteText}
         setNoteText={setNoteText}
         contactMade={contactMade}
