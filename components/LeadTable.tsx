@@ -1,22 +1,51 @@
 "use client";
 
 import React from "react";
-import { Database } from "lucide-react";
 
-export type LeadTableLead = {
+type Lead = {
   id: string;
   fullName: string;
   createdAt: string;
-  isClosed: boolean;
+  reminderDate?: string | null;
+  isClosed?: boolean;
+  isCancelled?: boolean;
 };
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleDateString();
-  } catch {
-    return value;
-  }
+function getLeadStatus(lead: Lead) {
+  if (lead.isCancelled) return "Cancelled";
+  if (lead.isClosed) return "Closed";
+
+  if (lead.reminderDate) return "Followup";
+
+  const created = new Date(lead.createdAt);
+  const now = new Date();
+
+  const ageDays =
+    (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (ageDays < 7) return "New";
+  if (ageDays < 14) return "Expiring";
+
+  return "Old";
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    New: "bg-blue-100 text-blue-700",
+    Followup: "bg-yellow-100 text-yellow-800",
+    Expiring: "bg-orange-100 text-orange-700",
+    Old: "bg-gray-200 text-gray-700",
+    Closed: "bg-green-100 text-green-700",
+    Cancelled: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <span
+      className={`px-2 py-1 text-xs rounded-full font-medium ${styles[status]}`}
+    >
+      {status}
+    </span>
+  );
 }
 
 export default function LeadTable({
@@ -27,7 +56,7 @@ export default function LeadTable({
   onPrevPage,
   onNextPage,
 }: {
-  leads: LeadTableLead[];
+  leads: Lead[];
   currentPage: number;
   totalPages: number;
   onSelectLead: (id: string) => void;
@@ -35,60 +64,65 @@ export default function LeadTable({
   onNextPage: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b px-4 py-4">
-        <div className="inline-flex items-center gap-2 text-lg font-semibold">
-          <Database className="h-5 w-5" /> Lead Database
+    <div className="rounded-2xl border overflow-hidden">
+
+      <div className="px-4 py-3 font-semibold border-b">
+        Lead Database
+      </div>
+
+      {leads.length === 0 && (
+        <div className="p-4 text-sm text-gray-500">
+          No leads yet
         </div>
-        <div className="text-sm text-slate-500">{leads.length} visible</div>
-      </div>
-
-      <div className="grid grid-cols-[1.8fr_1fr] gap-3 border-b bg-slate-50 px-3 py-3 text-xs font-medium uppercase text-slate-500">
-        <div>Name</div>
-        <div>Created</div>
-      </div>
-
-      {leads.length === 0 ? (
-        <div className="px-4 py-8 text-sm text-slate-500">No leads found.</div>
-      ) : (
-        leads.map((lead) => (
-          <button
-            key={lead.id}
-            onClick={() => onSelectLead(lead.id)}
-            className={`grid w-full grid-cols-[1.8fr_1fr] items-center gap-3 border-b px-3 py-3 text-left text-sm hover:bg-slate-50 ${
-              lead.isClosed ? "bg-green-50 ring-1 ring-inset ring-green-500" : ""
-            }`}
-          >
-            <div className={`truncate font-medium ${lead.isClosed ? "text-green-700" : ""}`}>
-              {lead.fullName || "—"}
-            </div>
-            <div className={`text-slate-500 ${lead.isClosed ? "text-green-700" : ""}`}>
-              {formatDate(lead.createdAt)}
-            </div>
-          </button>
-        ))
       )}
 
-      <div className="flex items-center justify-between px-4 py-4">
-        <div className="text-sm text-slate-500">
+      {leads.map((lead) => {
+        const status = getLeadStatus(lead);
+
+        return (
+          <div
+            key={lead.id}
+            onClick={() => onSelectLead(lead.id)}
+            className="flex items-center justify-between px-4 py-3 border-b cursor-pointer hover:bg-slate-100"
+          >
+            <div>
+              <div className="font-medium">
+                {lead.fullName}
+              </div>
+
+              <div className="text-xs text-gray-500">
+                Created{" "}
+                {new Date(lead.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+
+            <StatusBadge status={status} />
+          </div>
+        );
+      })}
+
+      {/* Pagination */}
+
+      <div className="flex items-center justify-between p-3">
+
+        <button
+          onClick={onPrevPage}
+          className="px-3 py-1 border rounded-lg text-sm"
+        >
+          Prev
+        </button>
+
+        <div className="text-sm">
           Page {currentPage} of {totalPages}
         </div>
-        <div className="flex gap-2">
-          <button
-            disabled={currentPage <= 1}
-            onClick={onPrevPage}
-            className="rounded-2xl border px-4 py-2 text-sm disabled:opacity-50"
-          >
-            Prev
-          </button>
-          <button
-            disabled={currentPage >= totalPages}
-            onClick={onNextPage}
-            className="rounded-2xl border px-4 py-2 text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
+
+        <button
+          onClick={onNextPage}
+          className="px-3 py-1 border rounded-lg text-sm"
+        >
+          Next
+        </button>
+
       </div>
     </div>
   );
