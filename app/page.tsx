@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Plus, Save, Search } from "lucide-react";
+import { LogOut, Plus, Save, Search, Shield } from "lucide-react";
 import LoginForm from "../components/LoginForm";
 import LeadCreator, { type LeadDraft } from "../components/LeadCreator";
 import LeadDetails from "../components/LeadDetails";
@@ -63,6 +63,7 @@ export default function QuickDoorLeadsPage() {
   useEffect(() => {
     const raw = localStorage.getItem("quick-door-leads-draft");
     if (!raw) return;
+
     try {
       const saved = JSON.parse(raw);
       if (saved.leadDraft) setLeadDraft(saved.leadDraft);
@@ -74,6 +75,7 @@ export default function QuickDoorLeadsPage() {
   useEffect(() => {
     const timer = setInterval(() => {
       const snapshot = JSON.stringify({ leadDraft, searchDraft, page });
+
       if (snapshot !== autosaveRef.current) {
         localStorage.setItem("quick-door-leads-draft", snapshot);
         autosaveRef.current = snapshot;
@@ -86,6 +88,7 @@ export default function QuickDoorLeadsPage() {
 
   async function handleCreateLead() {
     const ok = await leadData.createLead(leadDraft);
+
     if (ok) {
       setLeadDraft(defaultLeadDraft());
       setShowCreate(false);
@@ -112,42 +115,60 @@ export default function QuickDoorLeadsPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
+
         <div className="rounded-3xl bg-slate-900 p-6 text-white">
           <div className="flex flex-wrap items-center justify-between gap-3">
+
             <div>
               <div className="text-3xl font-bold">QUICK</div>
               <div className="text-slate-300">
-                {auth.profile?.role === "admin" ? "Admin" : "Rep"} · {auth.email}
+                {auth.profile?.role === "master_admin" ? "Admin" : "Rep"} · {auth.email}
               </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
+
               <button
                 onClick={() => setShowSearch((v) => !v)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-200 px-4 py-2 font-semibold text-slate-900"
               >
-                <Search className="h-4 w-4" /> {showSearch ? "HIDE SEARCH" : "SEARCH"}
+                <Search className="h-4 w-4" />
+                {showSearch ? "HIDE SEARCH" : "SEARCH"}
               </button>
 
               <button
                 onClick={() => setShowCreate(true)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 font-semibold text-slate-900"
               >
-                <Plus className="h-4 w-4" /> ADD NEW LEAD
+                <Plus className="h-4 w-4" />
+                ADD NEW LEAD
               </button>
+
+              {auth.profile?.role === "master_admin" && (
+                <a
+                  href="/admin"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2 font-semibold text-slate-900"
+                >
+                  <Shield className="h-4 w-4" />
+                  ADMIN
+                </a>
+              )}
 
               <button
                 onClick={auth.signOut}
                 className="inline-flex items-center gap-2 rounded-2xl bg-red-500 px-4 py-2 font-semibold text-white"
               >
-                <LogOut className="h-4 w-4" /> SIGN OUT
+                <LogOut className="h-4 w-4" />
+                SIGN OUT
               </button>
+
             </div>
           </div>
 
           <div className="mt-3 inline-flex items-center gap-2 text-xs text-slate-300">
-            <Save className="h-3 w-3" /> Autosaved every 3 seconds{" "}
-            {autosaveAt ? `· last saved ${formatDateTime(autosaveAt)}` : ""}
+            <Save className="h-3 w-3" />
+            Autosaved every 3 seconds
+            {autosaveAt ? ` · last saved ${formatDateTime(autosaveAt)}` : ""}
           </div>
 
           <div className="mt-2 text-xs text-slate-300">
@@ -159,17 +180,20 @@ export default function QuickDoorLeadsPage() {
           </div>
         </div>
 
-        {showCreate ? (
+        {showCreate && (
           <LeadCreator
             leadDraft={leadDraft}
             setLeadDraft={setLeadDraft}
             onCreateLead={handleCreateLead}
           />
-        ) : null}
+        )}
 
-        {showSearch ? (
-          <SearchPanel searchDraft={searchDraft} setSearchDraft={setSearchDraft} />
-        ) : null}
+        {showSearch && (
+          <SearchPanel
+            searchDraft={searchDraft}
+            setSearchDraft={setSearchDraft}
+          />
+        )}
 
         <LeadTable
           leads={leadData.paged.map((lead) => ({
@@ -181,7 +205,9 @@ export default function QuickDoorLeadsPage() {
           totalPages={leadData.totalPages}
           onSelectLead={leadData.setSelectedLeadId}
           onPrevPage={() => setPage((p) => Math.max(1, p - 1))}
-          onNextPage={() => setPage((p) => Math.min(leadData.totalPages, p + 1))}
+          onNextPage={() =>
+            setPage((p) => Math.min(leadData.totalPages, p + 1))
+          }
         />
 
         <LeadDetails
@@ -207,10 +233,12 @@ export default function QuickDoorLeadsPage() {
           onClose={() => leadData.setSelectedLeadId(null)}
           onSaveReminder={() => {
             if (!leadData.selectedLead) return;
+
             leadData.updateLead({
               ...leadData.selectedLead,
               noFollowUp: false,
-              reminderDate: newReminderDate || leadData.selectedLead.reminderDate,
+              reminderDate:
+                newReminderDate || leadData.selectedLead.reminderDate,
               reminderStatus: "scheduled",
             });
           }}
@@ -220,13 +248,19 @@ export default function QuickDoorLeadsPage() {
           }}
           onAddNote={() => {
             if (!leadData.selectedLead) return;
-            leadData.addNote(leadData.selectedLead, noteText, () => setNoteText(""));
+
+            leadData.addNote(
+              leadData.selectedLead,
+              noteText,
+              () => setNoteText("")
+            );
           }}
           onDeleteLead={() => {
             if (!leadData.selectedLead) return;
             leadData.deleteLead(leadData.selectedLead.id);
           }}
         />
+
       </div>
     </div>
   );
