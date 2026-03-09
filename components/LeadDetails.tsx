@@ -1,7 +1,24 @@
 "use client";
 
 import React from "react";
-import { Bell, Clock, FileText, MapPin, Trash2, X, ExternalLink } from "lucide-react";
+import {
+  Bell,
+  Clock,
+  FileText,
+  MapPin,
+  Trash2,
+  X,
+  ExternalLink,
+  Mic,
+  MicOff,
+} from "lucide-react";
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any;
+    SpeechRecognition: any;
+  }
+}
 
 export type ContactEntry = {
   id: string;
@@ -65,6 +82,70 @@ export default function LeadDetails({
   onDeleteLead: () => void;
   onMarkClosedDeal: () => void;
 }) {
+  const [isDictating, setIsDictating] = React.useState(false);
+  const recognitionRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  function startDictation() {
+    const SpeechRecognition =
+      typeof window !== "undefined" &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+    if (!SpeechRecognition) {
+      alert("Voice dictation is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      setIsDictating(true);
+    };
+
+    recognition.onend = () => {
+      setIsDictating(false);
+    };
+
+    recognition.onerror = () => {
+      setIsDictating(false);
+    };
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+
+      setNoteText((prev) => {
+        const base = prev.trim();
+        const next = transcript.trim();
+        if (!next) return prev;
+        return base ? `${base} ${next}` : next;
+      });
+    };
+
+    recognition.start();
+  }
+
+  function stopDictation() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsDictating(false);
+  }
+
   if (!lead) return null;
 
   return (
@@ -178,11 +259,33 @@ export default function LeadDetails({
           <FileText className="h-4 w-4" /> Notes
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          {!isDictating ? (
+            <button
+              onClick={startDictation}
+              className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-white"
+            >
+              <Mic className="h-4 w-4" /> Start Dictation
+            </button>
+          ) : (
+            <button
+              onClick={stopDictation}
+              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-2 text-white"
+            >
+              <MicOff className="h-4 w-4" /> Stop Dictation
+            </button>
+          )}
+
+          {isDictating ? (
+            <div className="self-center text-sm text-red-600">Listening…</div>
+          ) : null}
+        </div>
+
         <textarea
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           className="min-h-[120px] w-full rounded-2xl border px-3 py-2"
-          placeholder="Type note here"
+          placeholder="Type or dictate note here"
         />
 
         <div className="flex justify-end">
