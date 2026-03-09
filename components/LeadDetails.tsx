@@ -34,6 +34,7 @@ export type LeadDetailsLead = {
   mapsUrl: string | null;
   reminderDate: string;
   isClosed: boolean;
+  isCancelled: boolean;
   phone?: string;
   contactLog: ContactEntry[];
   notes: NoteEntry[];
@@ -57,6 +58,8 @@ export default function LeadDetails({
   onAddNote,
   onDeleteLead,
   onMarkClosedDeal,
+  onMarkCancelledDeal,
+  onReviveDeal,
 }: {
   lead: LeadDetailsLead | null;
   noteText: string;
@@ -71,6 +74,8 @@ export default function LeadDetails({
   onAddNote: () => void;
   onDeleteLead: () => void;
   onMarkClosedDeal: () => void;
+  onMarkCancelledDeal: () => void;
+  onReviveDeal: () => void;
 }) {
   if (!lead) return null;
 
@@ -82,7 +87,11 @@ export default function LeadDetails({
       <div className="flex items-center justify-between">
         <div className="text-lg font-semibold">
           {lead.fullName}
-          {lead.isClosed ? (
+          {lead.isCancelled ? (
+            <span className="ml-2 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
+              Cancelled Deal
+            </span>
+          ) : lead.isClosed ? (
             <span className="ml-2 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
               Closed Deal
             </span>
@@ -144,7 +153,7 @@ export default function LeadDetails({
         ) : null}
       </div>
 
-      {!lead.isClosed ? (
+      {!lead.isClosed && !lead.isCancelled ? (
         <div className="rounded-2xl border p-4">
           <button
             onClick={onMarkClosedDeal}
@@ -155,25 +164,60 @@ export default function LeadDetails({
         </div>
       ) : null}
 
-      <div className="space-y-3 rounded-2xl border p-4">
-        <div className="inline-flex items-center gap-2 font-medium">
-          <Bell className="h-4 w-4" /> ADD REMINDER
+      {lead.isClosed ? (
+        <div className="rounded-2xl border p-4">
+          <button
+            onClick={onMarkCancelledDeal}
+            className="rounded-2xl bg-red-600 px-4 py-2 text-white"
+          >
+            MARK AS CANCELLED DEAL
+          </button>
         </div>
+      ) : null}
 
-        <input
-          type="date"
-          value={newReminderDate || lead.reminderDate}
-          onChange={(e) => setNewReminderDate(e.target.value)}
-          className="w-full rounded-2xl border px-3 py-2"
-        />
+      {lead.isCancelled ? (
+        <div className="space-y-3 rounded-2xl border p-4">
+          <div className="inline-flex items-center gap-2 font-medium">
+            <Bell className="h-4 w-4" /> REVIVE DEAL
+          </div>
 
-        <button
-          onClick={onSaveReminder}
-          className="rounded-2xl bg-slate-900 px-4 py-2 text-white"
-        >
-          Save Reminder
-        </button>
-      </div>
+          <input
+            type="date"
+            value={newReminderDate}
+            onChange={(e) => setNewReminderDate(e.target.value)}
+            className="w-full rounded-2xl border px-3 py-2"
+          />
+
+          <button
+            onClick={onReviveDeal}
+            className="rounded-2xl bg-amber-600 px-4 py-2 text-white"
+          >
+            REVIVE DEAL
+          </button>
+        </div>
+      ) : null}
+
+      {!lead.isCancelled ? (
+        <div className="space-y-3 rounded-2xl border p-4">
+          <div className="inline-flex items-center gap-2 font-medium">
+            <Bell className="h-4 w-4" /> ADD REMINDER
+          </div>
+
+          <input
+            type="date"
+            value={newReminderDate || lead.reminderDate}
+            onChange={(e) => setNewReminderDate(e.target.value)}
+            className="w-full rounded-2xl border px-3 py-2"
+          />
+
+          <button
+            onClick={onSaveReminder}
+            className="rounded-2xl bg-slate-900 px-4 py-2 text-white"
+          >
+            Save Reminder
+          </button>
+        </div>
+      ) : null}
 
       <LeadContactLog
         contactMade={contactMade}
