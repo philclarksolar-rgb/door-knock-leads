@@ -274,6 +274,13 @@ export default function QuickDoorLeadsPage() {
           }}
           onDeleteLead={() => {
             if (!leadData.selectedLead) return;
+
+            const confirmed = confirm(
+              `Delete lead "${leadData.selectedLead.fullName || "this lead"}"? This cannot be undone.`
+            );
+
+            if (!confirmed) return;
+
             leadData.deleteLead(leadData.selectedLead.id);
           }}
         />
