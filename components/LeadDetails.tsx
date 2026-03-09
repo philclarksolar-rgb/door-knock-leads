@@ -1,7 +1,16 @@
 "use client";
 
 import React from "react";
-import { Bell, MapPin, Trash2, X, ExternalLink } from "lucide-react";
+import {
+  Bell,
+  MapPin,
+  Trash2,
+  X,
+  ExternalLink,
+  Phone,
+  MessageSquare,
+  Navigation,
+} from "lucide-react";
 import LeadNotes from "./LeadNotes";
 import LeadContactLog from "./LeadContactLog";
 
@@ -25,9 +34,14 @@ export type LeadDetailsLead = {
   mapsUrl: string | null;
   reminderDate: string;
   isClosed: boolean;
+  phone?: string;
   contactLog: ContactEntry[];
   notes: NoteEntry[];
 };
+
+function normalizedPhone(phone?: string) {
+  return (phone || "").replace(/[^\d+]/g, "");
+}
 
 export default function LeadDetails({
   lead,
@@ -60,6 +74,9 @@ export default function LeadDetails({
 }) {
   if (!lead) return null;
 
+  const phone = normalizedPhone(lead.phone);
+  const canCallOrText = !!phone;
+
   return (
     <div className="space-y-4 rounded-3xl border bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
@@ -84,12 +101,43 @@ export default function LeadDetails({
 
         <div className="mt-1">{lead.address}</div>
 
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canCallOrText ? (
+            <>
+              <a
+                href={`tel:${phone}`}
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              >
+                <Phone className="h-4 w-4" /> CALL
+              </a>
+
+              <a
+                href={`sms:${phone}`}
+                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+              >
+                <MessageSquare className="h-4 w-4" /> TEXT
+              </a>
+            </>
+          ) : null}
+
+          {lead.mapsUrl ? (
+            <a
+              href={lead.mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+            >
+              <Navigation className="h-4 w-4" /> DIRECTIONS
+            </a>
+          ) : null}
+        </div>
+
         {lead.mapsUrl ? (
           <a
             href={lead.mapsUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-sm underline"
+            className="mt-3 inline-flex items-center gap-1 text-sm underline"
           >
             <ExternalLink className="h-3 w-3" /> Open in Maps
           </a>
