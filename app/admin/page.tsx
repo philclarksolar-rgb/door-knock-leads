@@ -16,7 +16,7 @@ type ProfileRow = {
   is_active: boolean;
 };
 
-function supabaseHeaders() {
+function headers() {
   return {
     apikey: SUPABASE_ANON_KEY || "",
     Authorization: `Bearer ${SUPABASE_ANON_KEY || ""}`,
@@ -25,206 +25,228 @@ function supabaseHeaders() {
 }
 
 export default function AdminPage() {
-  const [rows, setRows] = useState<ProfileRow[]>([]);
-  const [authorized, setAuthorized] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  const [showAddUser, setShowAddUser] = useState(false);
+  const [rows,setRows] = useState<ProfileRow[]>([]);
+  const [loading,setLoading] = useState(true);
+  const [authorized,setAuthorized] = useState(false);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState("rep");
+  const [masterId,setMasterId] = useState<string>("");
 
   async function loadUsers() {
+
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.asc`,
-      {
-        headers: supabaseHeaders(),
-        cache: "no-store",
-      }
+      { headers: headers(), cache:"no-store" }
     );
 
-    const users = await res.json();
-    setRows(users || []);
+    const data = await res.json();
+    setRows(data || []);
   }
 
-  useEffect(() => {
-    async function init() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  useEffect(()=>{
+
+    async function init(){
+
+      const {data:{session}} = await supabase.auth.getSession();
 
       const userId = session?.user?.id;
 
-      if (!userId) {
+      if(!userId){
         setLoading(false);
         return;
       }
 
-      const profileRes = await fetch(
+      const res = await fetch(
         `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
-        {
-          headers: supabaseHeaders(),
-        }
+        { headers: headers() }
       );
 
-      const profileRows = await profileRes.json();
-      const me = profileRows?.[0];
+      const rows = await res.json();
+      const me = rows?.[0];
 
-      if (!me || me.role !== "master_admin") {
+      if(!me || me.role !== "master_admin"){
         setLoading(false);
         return;
       }
 
       setAuthorized(true);
+      setMasterId(userId);
+
       await loadUsers();
+
       setLoading(false);
     }
 
     init();
-  }, []);
 
-  async function createUser() {
-    const password = Math.random().toString(36).slice(2, 10);
+  },[]);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  async function disableUser(user:ProfileRow){
 
-    if (error) {
-      alert(error.message);
+    if(user.id === masterId){
+      alert("Master admin cannot be disabled.");
       return;
     }
 
-    const userId = data.user?.id;
+    if(!confirm("Disable user and transfer all leads to you?")){
+      return;
+    }
 
-    await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
-      method: "POST",
-      headers: {
-        ...supabaseHeaders(),
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({
-        id: userId,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        phone,
-        role,
-        is_active: true,
-      }),
+    await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({is_active:false})
     });
 
-    setShowAddUser(false);
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhone("");
-    setRole("rep");
+    await fetch(`${SUPABASE_URL}/rest/v1/leads?owner_user_id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({
+        previous_owner_user_id:user.id,
+        owner_user_id:masterId
+      })
+    });
+
+    await fetch(`${SUPABASE_URL}/rest/v1/notes?owner_user_id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({
+        previous_owner_user_id:user.id,
+        owner_user_id:masterId
+      })
+    });
+
+    await fetch(`${SUPABASE_URL}/rest/v1/contact_log?owner_user_id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({
+        previous_owner_user_id:user.id,
+        owner_user_id:masterId
+      })
+    });
 
     await loadUsers();
-
-    alert("User created. Temporary password: " + password);
   }
 
-  if (loading) return <div className="p-8">Loading admin...</div>;
-  if (!authorized) return <div className="p-8">Not authorized</div>;
+  async function enableUser(user:ProfileRow){
+
+    if(!confirm("Re-enable user and restore their leads?")){
+      return;
+    }
+
+    await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({is_active:true})
+    });
+
+    await fetch(`${SUPABASE_URL}/rest/v1/leads?previous_owner_user_id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({
+        owner_user_id:user.id,
+        previous_owner_user_id:null
+      })
+    });
+
+    await fetch(`${SUPABASE_URL}/rest/v1/notes?previous_owner_user_id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({
+        owner_user_id:user.id,
+        previous_owner_user_id:null
+      })
+    });
+
+    await fetch(`${SUPABASE_URL}/rest/v1/contact_log?previous_owner_user_id=eq.${user.id}`,{
+      method:"PATCH",
+      headers:{...headers(),Prefer:"return=minimal"},
+      body:JSON.stringify({
+        owner_user_id:user.id,
+        previous_owner_user_id:null
+      })
+    });
+
+    await loadUsers();
+  }
+
+  if(loading) return <div className="p-8">Loading admin...</div>;
+  if(!authorized) return <div className="p-8">Not authorized</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+
+    <div className="min-h-screen bg-slate-50 p-6">
+
       <div className="mx-auto max-w-4xl space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold">ADMIN</h1>
 
-          <button
-            onClick={() => setShowAddUser(true)}
-            className="rounded-2xl bg-slate-900 px-4 py-2 text-white"
-          >
-            + ADD USER
-          </button>
-        </div>
+        <h1 className="text-3xl font-bold">ADMIN</h1>
 
-        {showAddUser && (
-          <div className="space-y-3 rounded-3xl bg-white p-5 shadow-sm">
-            <input
-              placeholder="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full rounded-2xl border px-3 py-2"
-            />
+        <div className="rounded-3xl bg-white shadow-sm overflow-hidden">
 
-            <input
-              placeholder="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-full rounded-2xl border px-3 py-2"
-            />
-
-            <input
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-2xl border px-3 py-2"
-            />
-
-            <input
-              placeholder="Phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-2xl border px-3 py-2"
-            />
-
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-2xl border px-3 py-2"
-            >
-              <option value="rep">Rep</option>
-              <option value="admin">Admin</option>
-            </select>
-
-            <div className="flex gap-3">
-              <button
-                onClick={createUser}
-                className="rounded-2xl bg-green-600 px-4 py-2 text-white"
-              >
-                CREATE USER
-              </button>
-
-              <button
-                onClick={() => setShowAddUser(false)}
-                className="rounded-2xl border px-4 py-2"
-              >
-                CANCEL
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
-          <div className="grid grid-cols-[1.5fr_1.2fr_1fr] gap-3 border-b bg-slate-100 px-4 py-3 text-sm font-semibold">
+          <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b bg-slate-100 px-4 py-3 text-sm font-semibold">
             <div>Name</div>
             <div>Phone</div>
             <div>Role</div>
+            <div>Actions</div>
           </div>
 
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="grid grid-cols-[1.5fr_1.2fr_1fr] gap-3 border-b px-4 py-3 text-sm"
-            >
-              <div className="truncate">
-                {[row.first_name, row.last_name].filter(Boolean).join(" ") || "—"}
+          {rows.map((row)=>{
+
+            const name = [row.first_name,row.last_name].filter(Boolean).join(" ");
+
+            return(
+
+              <div
+                key={row.id}
+                className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b px-4 py-3 text-sm"
+              >
+
+                <div>{name}</div>
+
+                <div>{row.phone || "—"}</div>
+
+                <div>{row.role}</div>
+
+                <div className="flex gap-2">
+
+                  {row.id !== masterId && row.is_active && (
+
+                    <button
+                      onClick={()=>disableUser(row)}
+                      className="rounded-lg bg-red-500 px-2 py-1 text-white text-xs"
+                    >
+                      Disable
+                    </button>
+
+                  )}
+
+                  {row.id !== masterId && !row.is_active && (
+
+                    <button
+                      onClick={()=>enableUser(row)}
+                      className="rounded-lg bg-green-600 px-2 py-1 text-white text-xs"
+                    >
+                      Re-Enable
+                    </button>
+
+                  )}
+
+                  {row.id === masterId && (
+                    <span className="text-xs text-gray-500">
+                      Master
+                    </span>
+                  )}
+
+                </div>
+
               </div>
-              <div className="truncate">{row.phone || "—"}</div>
-              <div className="truncate">{row.role}</div>
-            </div>
-          ))}
+            )
+          })}
+
         </div>
+
       </div>
+
     </div>
   );
 }
