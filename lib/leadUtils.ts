@@ -33,6 +33,7 @@ export type Lead = {
   mapsUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  isClosed: boolean;
   ownerUserId?: string | null;
   notes: NoteEntry[];
   contactLog: ContactEntry[];
@@ -159,6 +160,7 @@ export function mapRowToLead(row: any): Lead {
     mapsUrl: row.maps_url || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    isClosed: !!row.is_closed,
     ownerUserId: row.owner_user_id || null,
     notes: [],
     contactLog: [],
@@ -180,6 +182,7 @@ export function mapLeadToRow(lead: Lead, ownerUserId: string) {
     reminder_mode: lead.reminderMode,
     reminder_status: lead.noFollowUp ? "none" : lead.reminderStatus,
     reminder_target: lead.reminderTarget,
+    is_closed: lead.isClosed,
     owner_user_id: ownerUserId,
     updated_at: new Date().toISOString(),
   };
