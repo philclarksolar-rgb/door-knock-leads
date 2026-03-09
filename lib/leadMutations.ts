@@ -14,9 +14,11 @@ const REMINDER_EMAIL = "philclarksolar@gmail.com";
 export async function createLeadRecord({
   leadDraft,
   sessionUserId,
+  creatorName,
 }: {
   leadDraft: LeadDraft;
   sessionUserId: string | null;
+  creatorName: string;
 }) {
   if (
     !leadDraft.fullName.trim() ||
@@ -54,9 +56,15 @@ export async function createLeadRecord({
     isClosed: false,
     statusLastChangedAt: now,
     ownerUserId: sessionUserId,
+    creatorName,
     notes: [],
     contactLog: [],
   };
+
+  const row = mapLeadToRow(draftLead, sessionUserId);
+
+  row.created_by_user_id = sessionUserId;
+  row.created_by_name = creatorName;
 
   const leadRes = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
     method: "POST",
@@ -64,7 +72,7 @@ export async function createLeadRecord({
       ...supabaseHeaders(),
       Prefer: "return=representation",
     },
-    body: JSON.stringify(mapLeadToRow(draftLead, sessionUserId)),
+    body: JSON.stringify(row),
   });
 
   if (!leadRes.ok) throw new Error("Could not save lead.");
@@ -89,6 +97,7 @@ export async function createLeadRecord({
   if (!contactRes.ok) throw new Error("Lead saved, but contact log failed.");
 
   const contactRows = await contactRes.json();
+
   savedLead.contactLog = [
     {
       id: contactRows[0].id,
@@ -123,6 +132,7 @@ export async function updateLeadRecord(next: Lead, fallbackOwnerUserId: string) 
   const updated = mapRowToLead(rows[0]);
   updated.notes = next.notes;
   updated.contactLog = next.contactLog;
+
   return updated;
 }
 
@@ -169,6 +179,7 @@ export async function addContactLogRecord({
   if (!res.ok) throw new Error("Could not save contact log.");
 
   const rows = await res.json();
+
   const entry: ContactEntry = {
     id: rows[0].id,
     label: rows[0].label,
@@ -211,6 +222,7 @@ export async function addNoteRecord({
   if (!res.ok) throw new Error("Could not save note.");
 
   const rows = await res.json();
+
   const entry: NoteEntry = {
     id: rows[0].id,
     text: rows[0].note,
