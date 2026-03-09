@@ -14,6 +14,7 @@ import {
 import LeadNotes from "./LeadNotes";
 import LeadContactLog from "./LeadContactLog";
 import LeadTimeline from "./LeadTimeline";
+import LeadAttachments from "./LeadAttachments";
 
 export type ContactEntry = {
   id: string;
@@ -37,6 +38,9 @@ export type LeadDetailsLead = {
   isClosed: boolean;
   isCancelled: boolean;
   phone?: string;
+  roofPhotoPath?: string | null;
+  panelPhotoPath?: string | null;
+  utilityBillPath?: string | null;
   contactLog: ContactEntry[];
   notes: NoteEntry[];
   createdAt?: string;
@@ -62,6 +66,7 @@ export default function LeadDetails({
   onMarkClosedDeal,
   onMarkCancelledDeal,
   onReviveDeal,
+  onUpdateLead,
 }: {
   lead: LeadDetailsLead | null;
   noteText: string;
@@ -78,6 +83,7 @@ export default function LeadDetails({
   onMarkClosedDeal: () => void;
   onMarkCancelledDeal: () => void;
   onReviveDeal: () => void;
+  onUpdateLead: (updates: Partial<LeadDetailsLead>) => void;
 }) {
   if (!lead) return null;
 
@@ -227,6 +233,16 @@ export default function LeadDetails({
           reminderDate: lead.reminderDate,
           contactLog: lead.contactLog,
         }}
+      />
+
+      <LeadAttachments
+        lead={{
+          id: lead.id,
+          roofPhotoPath: lead.roofPhotoPath || null,
+          panelPhotoPath: lead.panelPhotoPath || null,
+          utilityBillPath: lead.utilityBillPath || null,
+        }}
+        updateLead={onUpdateLead}
       />
 
       <LeadContactLog
