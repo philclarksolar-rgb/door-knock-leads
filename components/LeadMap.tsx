@@ -1,198 +1,146 @@
-"use client"
+// @ts-nocheck
+"use client";
 
-import React,{ useEffect,useRef,useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import MapMarkers from "./MapMarkers";
+import MapAddressConfirm from "./MapAddressConfirm";
 
-const RADIUS_OPTIONS = [
-  0.25,
-  0.5,
-  1,
-  2,
-  5,
-  10,
-  20
-]
+const RADIUS_OPTIONS = [0.25, 0.5, 1, 2, 5, 10, 20];
+
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 3958.8;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function reverseGeocode(lat: number, lon: number) {
+  const url =
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2` +
+    `&lat=${lat}&lon=${lon}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  return {
+    id: `${lat}-${lon}`,
+    display_name: data.display_name,
+    lat,
+    lon,
+    mapsUrl: `https://maps.google.com/?q=${lat},${lon}`,
+  };
+}
 
 export default function LeadMap({
-  onPrefillLeadAddress
-}:any){
+  leads,
+  onOpenLead,
+  onPrefillLeadAddress,
+}: any) {
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const leafletRef = useRef(null);
+  const layerRef = useRef(null);
 
-  const mapRef = useRef<any>(null)
-  const mapContainerRef = useRef<any>(null)
-  const layerRef = useRef<any>(null)
+  const [radius, setRadius] = useState(1);
+  const [userLocation, setUserLocation] = useState<any>(null);
+  const [selectedPoint, setSelectedPoint] = useState<any>(null);
+  const [addressInput, setAddressInput] = useState("");
+  const [verifiedAddress, setVerifiedAddress] = useState<any>(null);
 
-  const [radius,setRadius] = useState(1)
+  const nearbyLeads = useMemo(() => {
+    if (!userLocation) return [];
 
-  async function loadNearbyLeads(
-    lat:number,
-    lon:number
-  ){
+    return leads.filter((lead: any) => {
+      if (!lead.lat || !lead.lon) return false;
 
-    const res =
-      await fetch(
-        "/api/leads-nearby",
-        {
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json"
-          },
-          body:JSON.stringify({
-            lat,
-            lon,
-            radius
-          })
-        }
-      )
+      const distance = haversineMiles(
+        userLocation.lat,
+        userLocation.lon,
+        lead.lat,
+        lead.lon
+      );
 
-    const data =
-      await res.json()
+      return distance <= radius;
+    });
+  }, [leads, radius, userLocation]);
 
-    return data.leads || []
+  useEffect(() => {
+    async function initMap() {
+      if (!mapContainerRef.current || mapRef.current) return;
 
-  }
+      const L = (await import("leaflet")).default;
+      leafletRef.current = L;
 
-  async function refreshMarkers(){
+      const map = L.map(mapContainerRef.current).setView([32.7157, -117.1611], 12);
+      mapRef.current = map;
 
-    const map = mapRef.current
+      L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
 
-    if(!map) return
+      layerRef.current = L.layerGroup().addTo(map);
 
-    const center =
-      map.getCenter()
+      map.on("click", async (e: any) => {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
 
-    const leads =
-      await loadNearbyLeads(
-        center.lat,
-        center.lng
-      )
+        setSelectedPoint({ lat, lon });
 
-    const L = window.L
+        const addr = await reverseGeocode(lat, lon);
+        setAddressInput(addr.display_name);
+        setVerifiedAddress(addr);
+      });
 
-    layerRef.current.clearLayers()
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const location = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+        };
 
-    leads.forEach((lead:any)=>{
-
-      const marker =
-        L.circleMarker(
-          [lead.lat,lead.lon],
-          {
-            radius:6,
-            color:"blue"
-          }
-        )
-
-      marker.addTo(layerRef.current)
-
-      marker.on("click",()=>{
-
-        const create =
-          confirm(
-            `Create lead for\n${lead.address}?`
-          )
-
-        if(create){
-
-          onPrefillLeadAddress({
-            display_name:lead.address,
-            lat:lead.lat,
-            lon:lead.lon
-          })
-
-        }
-
-      })
-
-    })
-
-  }
-
-  useEffect(()=>{
-
-    async function init(){
-
-      const L =
-        (await import("leaflet")).default
-
-      if(!mapContainerRef.current){
-        return
-      }
-
-      const map =
-        L.map(mapContainerRef.current)
-        .setView([32.7157,-117.1611],13)
-
-      mapRef.current = map
-
-      L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { attribution:"OpenStreetMap" }
-      ).addTo(map)
-
-      layerRef.current =
-        L.layerGroup().addTo(map)
-
-      navigator.geolocation.getCurrentPosition(
-        async(pos)=>{
-
-          const lat =
-            pos.coords.latitude
-
-          const lon =
-            pos.coords.longitude
-
-          map.setView([lat,lon],15)
-
-          refreshMarkers()
-
-        }
-      )
-
-      map.on("moveend",()=>{
-
-        refreshMarkers()
-
-      })
-
+        setUserLocation(location);
+        map.setView([location.lat, location.lon], 15);
+      });
     }
 
-    init()
+    initMap();
+  }, []);
 
-  },[])
+  useEffect(() => {
+    MapMarkers({
+      leaflet: leafletRef.current,
+      layer: layerRef.current,
+      userLocation,
+      leads: nearbyLeads,
+      selectedPoint,
+      onOpenLead,
+    });
+  }, [nearbyLeads, selectedPoint, userLocation, onOpenLead]);
 
-  useEffect(()=>{
-
-    refreshMarkers()
-
-  },[radius])
-
-  return(
-
-    <div className="border rounded-xl p-4 bg-white space-y-3">
-
+  return (
+    <div className="space-y-4 border rounded-2xl p-4 bg-white">
       <div className="flex justify-between items-center">
-
-        <div className="font-medium">
-          Nearby Leads Map
-        </div>
+        <div className="font-semibold">Nearby Leads Map</div>
 
         <select
           value={radius}
-          onChange={(e)=>
-            setRadius(
-              parseFloat(e.target.value)
-            )
-          }
+          onChange={(e) => setRadius(parseFloat(e.target.value))}
           className="border rounded-lg px-2 py-1 text-sm"
         >
-          {RADIUS_OPTIONS.map((r)=>(
-            <option
-              key={r}
-              value={r}
-            >
+          {RADIUS_OPTIONS.map((r) => (
+            <option key={r} value={r}>
               {r} mi
             </option>
           ))}
         </select>
-
       </div>
 
       <div
@@ -200,8 +148,13 @@ export default function LeadMap({
         className="h-[420px] w-full rounded-xl border"
       />
 
+      <MapAddressConfirm
+        selectedPoint={selectedPoint}
+        addressInput={addressInput}
+        setAddressInput={setAddressInput}
+        verifiedAddress={verifiedAddress}
+        onPrefillLeadAddress={onPrefillLeadAddress}
+      />
     </div>
-
-  )
-
+  );
 }
