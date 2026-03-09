@@ -1,6 +1,5 @@
-"use client";
-
 // @ts-nocheck
+"use client";
 
 import React, { useEffect, useRef } from "react";
 
@@ -42,8 +41,7 @@ export default function LeadMap({ leads }: { leads: LeadMapLead[] }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    let map: any;
-    let L: any;
+    let map: any = null;
 
     async function initMap() {
       if (!mapRef.current) return;
@@ -55,9 +53,7 @@ export default function LeadMap({ leads }: { leads: LeadMapLead[] }) {
       const center = averageCenter(plotted);
 
       const leaflet = await import("leaflet");
-      L = leaflet.default;
-
-      if (mapRef.current._leaflet_id) return;
+      const L = leaflet.default;
 
       map = L.map(mapRef.current).setView(center, 13);
 
