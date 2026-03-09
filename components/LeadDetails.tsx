@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import LeadNotes from "./LeadNotes";
 import LeadContactLog from "./LeadContactLog";
+import LeadTimeline from "./LeadTimeline";
 
 export type ContactEntry = {
   id: string;
@@ -38,6 +39,7 @@ export type LeadDetailsLead = {
   phone?: string;
   contactLog: ContactEntry[];
   notes: NoteEntry[];
+  createdAt?: string;
 };
 
 function normalizedPhone(phone?: string) {
@@ -218,6 +220,14 @@ export default function LeadDetails({
           </button>
         </div>
       ) : null}
+
+      <LeadTimeline
+        lead={{
+          createdAt: lead.createdAt || "",
+          reminderDate: lead.reminderDate,
+          contactLog: lead.contactLog,
+        }}
+      />
 
       <LeadContactLog
         contactMade={contactMade}
