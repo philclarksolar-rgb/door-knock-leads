@@ -14,7 +14,6 @@ type ProfileRow = {
   phone: string | null;
   role: string;
   is_active: boolean;
-  created_at?: string;
 };
 
 function supabaseHeaders() {
@@ -26,92 +25,185 @@ function supabaseHeaders() {
 }
 
 export default function AdminPage() {
-  const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
   const [rows, setRows] = useState<ProfileRow[]>([]);
-  const [error, setError] = useState("");
+  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [showAddUser, setShowAddUser] = useState(false);
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState("rep");
+
+  async function loadUsers() {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.asc`,
+      {
+        headers: supabaseHeaders(),
+        cache: "no-store",
+      }
+    );
+
+    const users = await res.json();
+    setRows(users || []);
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+    async function init() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-        const userId = session?.user?.id;
-        if (!userId) {
-          setAuthorized(false);
-          setLoading(false);
-          return;
-        }
+      const userId = session?.user?.id;
 
-        const profileRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
-          {
-            headers: supabaseHeaders(),
-            cache: "no-store",
-          }
-        );
-
-        if (!profileRes.ok) throw new Error("Could not load your profile.");
-
-        const profileRows = await profileRes.json();
-        const me = profileRows?.[0];
-
-        if (!me || me.role !== "master_admin") {
-          setAuthorized(false);
-          setLoading(false);
-          return;
-        }
-
-        setAuthorized(true);
-
-        const usersRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.asc`,
-          {
-            headers: supabaseHeaders(),
-            cache: "no-store",
-          }
-        );
-
-        if (!usersRes.ok) throw new Error("Could not load users.");
-
-        const users = await usersRes.json();
-        setRows(users || []);
-      } catch (err: any) {
-        setError(err?.message || "Could not load admin page.");
-      } finally {
+      if (!userId) {
         setLoading(false);
+        return;
       }
+
+      const profileRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
+        {
+          headers: supabaseHeaders(),
+        }
+      );
+
+      const profileRows = await profileRes.json();
+      const me = profileRows?.[0];
+
+      if (!me || me.role !== "master_admin") {
+        setLoading(false);
+        return;
+      }
+
+      setAuthorized(true);
+
+      await loadUsers();
+
+      setLoading(false);
     }
 
-    load();
+    init();
   }, []);
 
-  if (loading) {
-    return <div className="p-8">Loading admin...</div>;
+  async function createUser() {
+    const password = Math.random().toString(36).slice(2, 10);
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    const userId = data.user?.id;
+
+    await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+      method: "POST",
+      headers: {
+        ...supabaseHeaders(),
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        id: userId,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        role,
+        is_active: true,
+      }),
+    });
+
+    setShowAddUser(false);
+
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPhone("");
+
+    await loadUsers();
+
+    alert("User created. Temporary password: " + password);
   }
 
-  if (!authorized) {
-    return <div className="p-8">Not authorized.</div>;
-  }
+  if (loading) return <div className="p-8">Loading admin...</div>;
+  if (!authorized) return <div className="p-8">Not authorized</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
+
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl bg-slate-900 p-6 text-white">
-          <div className="text-3xl font-bold">ADMIN</div>
-          <div className="text-slate-300">User management</div>
+
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">ADMIN</h1>
+
+          <button
+            onClick={() => setShowAddUser(true)}
+            className="bg-slate-900 text-white px-4 py-2 rounded-xl"
+          >
+            + ADD USER
+          </button>
         </div>
 
-        {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
-        ) : null}
+        {showAddUser && (
+          <div className="bg-white p-6 rounded-2xl shadow space-y-3">
 
-        <div className="rounded-3xl border bg-white shadow-sm overflow-hidden">
-          <div className="grid grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_1fr] gap-3 border-b bg-slate-50 px-4 py-3 text-xs font-medium uppercase text-slate-500">
+            <input
+              placeholder="First Name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="border p-2 w-full"
+            />
+
+            <input
+              placeholder="Last Name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="border p-2 w-full"
+            />
+
+            <input
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="border p-2 w-full"
+            />
+
+            <input
+              placeholder="Phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="border p-2 w-full"
+            />
+
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="border p-2 w-full"
+            >
+              <option value="rep">Rep</option>
+              <option value="admin">Admin</option>
+            </select>
+
+            <button
+              onClick={createUser}
+              className="bg-green-600 text-white px-4 py-2 rounded-xl"
+            >
+              CREATE USER
+            </button>
+
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow overflow-hidden">
+
+          <div className="grid grid-cols-6 gap-4 bg-slate-100 p-3 text-sm font-semibold">
             <div>First</div>
             <div>Last</div>
             <div>Email</div>
@@ -123,16 +215,17 @@ export default function AdminPage() {
           {rows.map((row) => (
             <div
               key={row.id}
-              className="grid grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_1fr] gap-3 border-b px-4 py-3 text-sm"
+              className="grid grid-cols-6 gap-4 border-t p-3 text-sm"
             >
-              <div>{row.first_name || "—"}</div>
-              <div>{row.last_name || "—"}</div>
-              <div className="truncate">{row.email}</div>
-              <div>{row.phone || "—"}</div>
+              <div>{row.first_name}</div>
+              <div>{row.last_name}</div>
+              <div>{row.email}</div>
+              <div>{row.phone}</div>
               <div>{row.role}</div>
               <div>{row.is_active ? "Active" : "Inactive"}</div>
             </div>
           ))}
+
         </div>
       </div>
     </div>
