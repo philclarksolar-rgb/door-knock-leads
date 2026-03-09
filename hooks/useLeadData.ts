@@ -17,12 +17,14 @@ import {
 export function useLeadData({
   sessionUserId,
   role,
+  profileName,
   searchDraft,
   page,
   setPage,
 }: {
   sessionUserId: string | null;
   role?: string | null;
+  profileName?: string | null;
   searchDraft: SearchDraft;
   page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
@@ -64,6 +66,7 @@ export function useLeadData({
       const savedLead = await createLeadRecord({
         leadDraft,
         sessionUserId,
+        creatorName: profileName || "Unknown",
       });
 
       if (!savedLead) return false;
