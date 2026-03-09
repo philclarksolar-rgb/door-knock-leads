@@ -37,6 +37,7 @@ function defaultSearchDraft(): SearchDraft {
     dateStart: "",
     dateEnd: "",
     includeClosedDeals: false,
+    statusFilter: "all",
   };
 }
 
