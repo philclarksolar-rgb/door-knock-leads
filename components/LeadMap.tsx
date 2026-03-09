@@ -2,14 +2,25 @@
 
 import React,{ useEffect,useRef,useState } from "react"
 
+const RADIUS_OPTIONS = [
+  0.25,
+  0.5,
+  1,
+  2,
+  5,
+  10,
+  20
+]
+
 export default function LeadMap({
   onPrefillLeadAddress
 }:any){
 
   const mapRef = useRef<any>(null)
   const mapContainerRef = useRef<any>(null)
+  const layerRef = useRef<any>(null)
 
-  const [markers,setMarkers] = useState<any[]>([])
+  const [radius,setRadius] = useState(1)
 
   async function loadNearbyLeads(
     lat:number,
@@ -27,7 +38,7 @@ export default function LeadMap({
           body:JSON.stringify({
             lat,
             lon,
-            radius:1
+            radius
           })
         }
       )
@@ -36,6 +47,61 @@ export default function LeadMap({
       await res.json()
 
     return data.leads || []
+
+  }
+
+  async function refreshMarkers(){
+
+    const map = mapRef.current
+
+    if(!map) return
+
+    const center =
+      map.getCenter()
+
+    const leads =
+      await loadNearbyLeads(
+        center.lat,
+        center.lng
+      )
+
+    const L = window.L
+
+    layerRef.current.clearLayers()
+
+    leads.forEach((lead:any)=>{
+
+      const marker =
+        L.circleMarker(
+          [lead.lat,lead.lon],
+          {
+            radius:6,
+            color:"blue"
+          }
+        )
+
+      marker.addTo(layerRef.current)
+
+      marker.on("click",()=>{
+
+        const create =
+          confirm(
+            `Create lead for\n${lead.address}?`
+          )
+
+        if(create){
+
+          onPrefillLeadAddress({
+            display_name:lead.address,
+            lat:lead.lat,
+            lon:lead.lon
+          })
+
+        }
+
+      })
+
+    })
 
   }
 
@@ -61,6 +127,9 @@ export default function LeadMap({
         { attribution:"OpenStreetMap" }
       ).addTo(map)
 
+      layerRef.current =
+        L.layerGroup().addTo(map)
+
       navigator.geolocation.getCurrentPosition(
         async(pos)=>{
 
@@ -72,48 +141,16 @@ export default function LeadMap({
 
           map.setView([lat,lon],15)
 
-          const leads =
-            await loadNearbyLeads(
-              lat,
-              lon
-            )
-
-          leads.forEach((lead:any)=>{
-
-            const marker =
-              L.circleMarker(
-                [lead.lat,lead.lon],
-                {
-                  radius:6,
-                  color:"blue"
-                }
-              )
-
-            marker.addTo(map)
-
-            marker.on("click",()=>{
-
-              const create =
-                confirm(
-                  `Create lead for\n${lead.address}?`
-                )
-
-              if(create){
-
-                onPrefillLeadAddress({
-                  display_name:lead.address,
-                  lat:lead.lat,
-                  lon:lead.lon
-                })
-
-              }
-
-            })
-
-          })
+          refreshMarkers()
 
         }
       )
+
+      map.on("moveend",()=>{
+
+        refreshMarkers()
+
+      })
 
     }
 
@@ -121,12 +158,41 @@ export default function LeadMap({
 
   },[])
 
+  useEffect(()=>{
+
+    refreshMarkers()
+
+  },[radius])
+
   return(
 
-    <div className="border rounded-xl p-4 bg-white">
+    <div className="border rounded-xl p-4 bg-white space-y-3">
 
-      <div className="font-medium mb-2">
-        Nearby Leads Map
+      <div className="flex justify-between items-center">
+
+        <div className="font-medium">
+          Nearby Leads Map
+        </div>
+
+        <select
+          value={radius}
+          onChange={(e)=>
+            setRadius(
+              parseFloat(e.target.value)
+            )
+          }
+          className="border rounded-lg px-2 py-1 text-sm"
+        >
+          {RADIUS_OPTIONS.map((r)=>(
+            <option
+              key={r}
+              value={r}
+            >
+              {r} mi
+            </option>
+          ))}
+        </select>
+
       </div>
 
       <div
