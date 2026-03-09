@@ -1,11 +1,11 @@
 "use client";
 
-import FollowUpDashboard from "./FollowUpDashboard";
 import LeadCreator from "./LeadCreator";
 import LeadDetails from "./LeadDetails";
 import LeadTable from "./LeadTable";
 import LeadMap from "./LeadMap";
 import SearchPanel from "./SearchPanel";
+import FollowUpDashboard from "./FollowUpDashboard";
 
 export default function HomePanels({
   showCreate,
@@ -55,6 +55,12 @@ export default function HomePanels({
         />
       )}
 
+      {/* FOLLOW-UP DASHBOARD */}
+
+      <FollowUpDashboard leads={leadData.leads} />
+
+      {/* LEAD TABLE */}
+
       <LeadTable
         leads={leadData.paged.map((lead: any) => ({
           id: lead.id,
@@ -70,6 +76,8 @@ export default function HomePanels({
           setPage((p: number) => Math.min(leadData.totalPages, p + 1))
         }
       />
+
+      {/* LEAD DETAILS */}
 
       <LeadDetails
         lead={leadData.selectedLead}
@@ -112,7 +120,9 @@ export default function HomePanels({
           if (!leadData.selectedLead) return;
 
           const confirmed = confirm(
-            `Delete lead "${leadData.selectedLead.fullName || "this lead"}"?`
+            `Delete lead "${
+              leadData.selectedLead.fullName || "this lead"
+            }"? This cannot be undone.`
           );
 
           if (!confirmed) return;
