@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type Lead = {
   id: string;
@@ -36,16 +36,16 @@ function haversineMiles(
 
 export default function LeadMap({
   leads,
+  onOpenLead,
 }: {
   leads: Lead[];
+  onOpenLead: (id: string) => void;
 }) {
   const [radius, setRadius] = useState(1);
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lon: number;
   } | null>(null);
-
-  const [nearbyLeads, setNearbyLeads] = useState<Lead[]>([]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -63,11 +63,11 @@ export default function LeadMap({
     );
   }, []);
 
-  useEffect(() => {
-    if (!userLocation) return;
+  const nearbyLeads = useMemo(() => {
+    if (!userLocation) return [];
 
-    const filtered = leads.filter((lead) => {
-      if (!lead.lat || !lead.lon) return false;
+    return leads.filter((lead) => {
+      if (lead.lat == null || lead.lon == null) return false;
 
       const distance = haversineMiles(
         userLocation.lat,
@@ -78,24 +78,16 @@ export default function LeadMap({
 
       return distance <= radius;
     });
-
-    setNearbyLeads(filtered);
-  }, [radius, userLocation, leads]);
+  }, [leads, radius, userLocation]);
 
   return (
     <div className="rounded-2xl border p-4 space-y-4">
-
       <div className="flex items-center justify-between">
-
-        <div className="font-semibold">
-          Nearby Leads
-        </div>
+        <div className="font-semibold">Nearby Leads</div>
 
         <select
           value={radius}
-          onChange={(e) =>
-            setRadius(parseFloat(e.target.value))
-          }
+          onChange={(e) => setRadius(parseFloat(e.target.value))}
           className="border rounded-lg px-2 py-1 text-sm"
         >
           <option value={0.25}>0.25 mi</option>
@@ -106,7 +98,6 @@ export default function LeadMap({
           <option value={10}>10 mi</option>
           <option value={20}>20 mi</option>
         </select>
-
       </div>
 
       {!userLocation && (
@@ -122,20 +113,15 @@ export default function LeadMap({
       )}
 
       {nearbyLeads.map((lead) => (
-        <div
+        <button
           key={lead.id}
-          className="border rounded-xl p-3"
+          onClick={() => onOpenLead(lead.id)}
+          className="w-full border rounded-xl p-3 text-left hover:bg-slate-100"
         >
-          <div className="font-medium">
-            {lead.fullName}
-          </div>
-
-          <div className="text-sm text-gray-500">
-            {lead.address}
-          </div>
-        </div>
+          <div className="font-medium">{lead.fullName}</div>
+          <div className="text-sm text-gray-500">{lead.address}</div>
+        </button>
       ))}
-
     </div>
   );
 }
