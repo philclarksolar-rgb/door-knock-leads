@@ -1,5 +1,6 @@
 "use client";
 
+import FollowUpDashboard from "./FollowUpDashboard";
 import LeadCreator from "./LeadCreator";
 import LeadDetails from "./LeadDetails";
 import LeadTable from "./LeadTable";
