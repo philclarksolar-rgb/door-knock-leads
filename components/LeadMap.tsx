@@ -2,8 +2,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import MapMarkers from "./MapMarkers";
 import MapAddressConfirm from "./MapAddressConfirm";
+import RepLeadPrompt from "./map/RepLeadPrompt";
+import RepLeadMarkers from "./map/RepLeadMarkers";
 
 const RADIUS_OPTIONS = [0.25, 0.5, 1, 2, 5, 10, 20];
 
@@ -44,6 +45,8 @@ export default function LeadMap({
   leads,
   onOpenLead,
   onPrefillLeadAddress,
+  sessionUserId,
+  role,
 }: any) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -55,6 +58,9 @@ export default function LeadMap({
   const [selectedPoint, setSelectedPoint] = useState<any>(null);
   const [addressInput, setAddressInput] = useState("");
   const [verifiedAddress, setVerifiedAddress] = useState<any>(null);
+  const [otherRepLead, setOtherRepLead] = useState<any>(null);
+
+  const isAdmin = role === "admin" || role === "master_admin";
 
   const nearbyLeads = useMemo(() => {
     if (!userLocation) return [];
@@ -93,6 +99,7 @@ export default function LeadMap({
         const lat = e.latlng.lat;
         const lon = e.latlng.lng;
 
+        setOtherRepLead(null);
         setSelectedPoint({ lat, lon });
 
         const addr = await reverseGeocode(lat, lon);
@@ -115,15 +122,21 @@ export default function LeadMap({
   }, []);
 
   useEffect(() => {
-    MapMarkers({
+    RepLeadMarkers({
       leaflet: leafletRef.current,
       layer: layerRef.current,
-      userLocation,
       leads: nearbyLeads,
+      userLocation,
       selectedPoint,
+      sessionUserId,
+      isAdmin,
       onOpenLead,
+      onOtherRepLeadClick: (lead: any) => {
+        setSelectedPoint(null);
+        setOtherRepLead(lead);
+      },
     });
-  }, [nearbyLeads, selectedPoint, userLocation, onOpenLead]);
+  }, [nearbyLeads, userLocation, selectedPoint, sessionUserId, isAdmin, onOpenLead]);
 
   return (
     <div className="space-y-4 border rounded-2xl p-4 bg-white">
@@ -154,6 +167,26 @@ export default function LeadMap({
         setAddressInput={setAddressInput}
         verifiedAddress={verifiedAddress}
         onPrefillLeadAddress={onPrefillLeadAddress}
+      />
+
+      <RepLeadPrompt
+        open={!!otherRepLead && !isAdmin}
+        repName={otherRepLead?.creatorName || "Unknown"}
+        onCancel={() => setOtherRepLead(null)}
+        onCreateRedundant={() => {
+          if (!otherRepLead) return;
+
+          onPrefillLeadAddress({
+            display_name: otherRepLead.address,
+            lat: otherRepLead.lat,
+            lon: otherRepLead.lon,
+            mapsUrl:
+              otherRepLead.mapsUrl ||
+              `https://maps.google.com/?q=${otherRepLead.lat},${otherRepLead.lon}`,
+          });
+
+          setOtherRepLead(null);
+        }}
       />
     </div>
   );
