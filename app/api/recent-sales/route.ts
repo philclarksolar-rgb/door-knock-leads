@@ -1,115 +1,112 @@
-import { NextResponse } from "next/server";
-import {
-  evaluateGovernor,
-  insertCachedSales,
-  logApiUsage,
-} from "@/lib/recentSalesGovernor";
+import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { getTileId, getTileBounds } from "@/lib/mapTile"
+import { checkRequestAllowed } from "@/lib/recentSalesGovernor"
 
-const RENTCAST_KEY = process.env.RENTCAST_API_KEY!;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
-export async function GET(req: Request) {
+export async function POST(req:Request){
 
-  try {
+  try{
 
-    const { searchParams } = new URL(req.url);
+    const body = await req.json()
 
-    const lat = Number(searchParams.get("lat"));
-    const lng = Number(searchParams.get("lng"));
-    const radius = Number(searchParams.get("radius") ?? 15);
+    const { lat, lon } = body
 
-    const userId = searchParams.get("userId") || null;
-    const isAdmin = searchParams.get("isAdmin") === "true";
-    const adminApproval = searchParams.get("adminApproval") === "true";
-    const disableUntilReset =
-      searchParams.get("disableUntilReset") === "true";
+    const tileId =
+      getTileId(lat,lon)
 
-    if (!lat || !lng) {
-      return NextResponse.json(
-        { error: "Missing coordinates." },
-        { status: 400 }
-      );
+    /* check cache */
+
+    const { data:cached } =
+      await supabase
+        .from("rentcast_cache")
+        .select("*")
+        .eq("tile_id",tileId)
+
+    if(cached && cached.length > 0){
+
+      return NextResponse.json({
+        source:"cache",
+        sales:cached
+      })
+
     }
 
-    const decision = await evaluateGovernor({
-      lat,
-      lng,
-      radius,
-      userId,
-      isAdmin,
-      adminApproval,
-      disableUntilReset,
-    });
+    /* check API governor */
 
-    if (decision.kind !== "allow") {
-      return NextResponse.json(decision.payload);
+    const allowed =
+      await checkRequestAllowed()
+
+    if(!allowed){
+
+      return NextResponse.json({
+        source:"blocked",
+        sales:[]
+      })
+
     }
 
-    const tileLat = decision.tileLat;
-    const tileLon = decision.tileLon;
+    const bounds =
+      getTileBounds(lat,lon)
 
-    const rentcastUrl =
+    const url =
       `https://api.rentcast.io/v1/properties/sale` +
-      `?latitude=${tileLat}` +
-      `&longitude=${tileLon}` +
-      `&radius=6` +
-      `&soldWithinMonths=6`;
+      `?minLatitude=${bounds.minLat}` +
+      `&maxLatitude=${bounds.maxLat}` +
+      `&minLongitude=${bounds.minLon}` +
+      `&maxLongitude=${bounds.maxLon}` +
+      `&daysSinceSold=180`
 
-    const rc = await fetch(rentcastUrl, {
-      headers: {
-        "X-Api-Key": RENTCAST_KEY,
-      },
-      cache: "no-store",
-    });
+    const response =
+      await fetch(url,{
+        headers:{
+          "X-Api-Key":
+          process.env.RENTCAST_API_KEY!
+        }
+      })
 
-    if (!rc.ok) {
-      return NextResponse.json(
-        { error: `RentCast error ${rc.status}` },
-        { status: rc.status }
-      );
+    const data =
+      await response.json()
+
+    if(data?.properties){
+
+      for(const home of data.properties){
+
+        await supabase
+          .from("rentcast_cache")
+          .insert({
+
+            lat:home.latitude,
+            lon:home.longitude,
+            address:home.address,
+            sale_date:home.lastSaleDate,
+            sale_price:home.lastSalePrice,
+            tile_id:tileId
+
+          })
+
+      }
+
     }
-
-    const sales = await rc.json();
-
-    const results = Array.isArray(sales)
-      ? sales.map((sale: any) => ({
-          address:
-            sale.formattedAddress ||
-            sale.addressLine1 ||
-            sale.address ||
-            "",
-          lat: sale.latitude,
-          lon: sale.longitude,
-          sale_price: sale.lastSalePrice || null,
-          sale_date: sale.lastSaleDate || null,
-          tile_lat: tileLat,
-          tile_lon: tileLon,
-        }))
-      : [];
-
-    await insertCachedSales(results);
-
-    await logApiUsage({
-      userId,
-      lat,
-      lng,
-      radius,
-      paidRequest: decision.paidRequest,
-    });
 
     return NextResponse.json({
-      source: "rentcast",
-      results,
-      requestCount: decision.requestCount + 1,
-      adminThresholdWarning: decision.adminThresholdWarning,
-      paidRequest: decision.paidRequest,
-    });
+      source:"rentcast",
+      sales:data.properties || []
+    })
 
-  } catch (error: any) {
+  }catch(error:any){
 
     return NextResponse.json(
-      { error: error?.message || "recent-sales error" },
-      { status: 500 }
-    );
+      {
+        error:error?.message
+      },
+      { status:500 }
+    )
 
   }
+
 }
