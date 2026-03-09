@@ -43,6 +43,9 @@ export type Lead = {
   updatedAt: string;
   isClosed: boolean;
   isCancelled: boolean;
+  roofPhotoPath?: string | null;
+  panelPhotoPath?: string | null;
+  utilityBillPath?: string | null;
   statusLastChangedAt?: string | null;
   ownerUserId?: string | null;
   notes: NoteEntry[];
@@ -198,6 +201,9 @@ export function mapRowToLead(row: any): Lead {
     updatedAt: row.updated_at,
     isClosed: !!row.is_closed,
     isCancelled: !!row.is_cancelled,
+    roofPhotoPath: row.roof_photo_path || null,
+    panelPhotoPath: row.panel_photo_path || null,
+    utilityBillPath: row.utility_bill_path || null,
     statusLastChangedAt: row.status_last_changed_at || null,
     ownerUserId: row.owner_user_id || null,
     notes: [],
@@ -222,6 +228,9 @@ export function mapLeadToRow(lead: Lead, ownerUserId: string) {
     reminder_target: lead.reminderTarget,
     is_closed: lead.isClosed,
     is_cancelled: lead.isCancelled,
+    roof_photo_path: lead.roofPhotoPath || null,
+    panel_photo_path: lead.panelPhotoPath || null,
+    utility_bill_path: lead.utilityBillPath || null,
     status_last_changed_at: lead.statusLastChangedAt || null,
     owner_user_id: ownerUserId,
     updated_at: new Date().toISOString(),
