@@ -5,67 +5,36 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const TARGET_PERCENT = 0.90
 const STORAGE_LIMIT_BYTES = 1000000000
 
-async function getUsage() {
+export async function getStorageUsage() {
 
-  const { data } = await supabase
-    .from("storage_usage")
-    .select("*")
-    .order("checked_at", { ascending:false })
-    .limit(1)
+  const { data, error } =
+    await supabase.storage.from("lead-files").list("", {
+      limit: 10000,
+      offset: 0
+    })
 
-  return data?.[0] || null
-}
+  if(error){
+    throw error
+  }
 
-async function deleteFolder(prefix:string) {
+  let totalBytes = 0
 
-  const { data } = await supabase
-    .storage
-    .from("lead-files")
-    .list(prefix)
+  for(const file of data){
 
-  if (!data) return
-
-  for (const file of data) {
-
-    await supabase
-      .storage
-      .from("lead-files")
-      .remove([`${prefix}/${file.name}`])
+    if(file.metadata?.size){
+      totalBytes += file.metadata.size
+    }
 
   }
-}
 
-async function deleteRentcastCache() {
+  const percent =
+    totalBytes / STORAGE_LIMIT_BYTES
 
-  await supabase
-    .from("rentcast_cache")
-    .delete()
-}
+  return {
+    bytes: totalBytes,
+    percent
+  }
 
-export async function dischargeStorage() {
-
-  const usage = await getUsage()
-
-  if (!usage) return
-
-  const targetBytes = STORAGE_LIMIT_BYTES * TARGET_PERCENT
-
-  if (usage.bytes_used <= targetBytes) return
-
-  await deleteFolder("roof")
-
-  const afterRoof = await getUsage()
-
-  if (afterRoof.bytes_used <= targetBytes) return
-
-  await deleteFolder("panel")
-
-  const afterPanel = await getUsage()
-
-  if (afterPanel.bytes_used <= targetBytes) return
-
-  await deleteRentcastCache()
 }
