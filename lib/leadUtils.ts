@@ -1,5 +1,12 @@
 const REMINDER_EMAIL = "philclarksolar@gmail.com";
 
+export type LeadStatus =
+  | "Closed Deal"
+  | "Followup Required"
+  | "New Lead"
+  | "Expiring Lead"
+  | "Old Lead";
+
 export type ContactEntry = {
   id: string;
   label: string;
@@ -34,6 +41,7 @@ export type Lead = {
   createdAt: string;
   updatedAt: string;
   isClosed: boolean;
+  statusLastChangedAt?: string | null;
   ownerUserId?: string | null;
   notes: NoteEntry[];
   contactLog: ContactEntry[];
@@ -140,6 +148,31 @@ export function getChronologicalRange(
   return { rangeStart, rangeEnd };
 }
 
+export function computeLeadStatus(lead: Lead): LeadStatus {
+  if (lead.isClosed) return "Closed Deal";
+
+  if (lead.reminderDate) return "Followup Required";
+
+  const created = new Date(lead.createdAt);
+  const now = new Date();
+  const ageMs = now.getTime() - created.getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+  if (ageDays < 7) return "New Lead";
+  if (ageDays < 14) return "Expiring Lead";
+  return "Old Lead";
+}
+
+export function statusFilterOptions(): LeadStatus[] {
+  return [
+    "Closed Deal",
+    "Followup Required",
+    "New Lead",
+    "Expiring Lead",
+    "Old Lead",
+  ];
+}
+
 export function mapRowToLead(row: any): Lead {
   return {
     id: row.id,
@@ -161,6 +194,7 @@ export function mapRowToLead(row: any): Lead {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     isClosed: !!row.is_closed,
+    statusLastChangedAt: row.status_last_changed_at || null,
     ownerUserId: row.owner_user_id || null,
     notes: [],
     contactLog: [],
@@ -183,6 +217,7 @@ export function mapLeadToRow(lead: Lead, ownerUserId: string) {
     reminder_status: lead.noFollowUp ? "none" : lead.reminderStatus,
     reminder_target: lead.reminderTarget,
     is_closed: lead.isClosed,
+    status_last_changed_at: lead.statusLastChangedAt || null,
     owner_user_id: ownerUserId,
     updated_at: new Date().toISOString(),
   };
