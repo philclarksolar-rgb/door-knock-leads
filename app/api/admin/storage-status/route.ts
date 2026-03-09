@@ -1,28 +1,29 @@
 import { NextResponse } from "next/server"
-import { checkStorageUsage } from "@/lib/storageMonitor"
-import { getSystemSettings } from "@/lib/recentSalesSettings"
+import { getStorageUsage } from "@/lib/storageMonitor"
 
 export async function GET() {
 
   try {
 
-    const usage = await checkStorageUsage()
-
-    const settings = await getSystemSettings()
+    const usage = await getStorageUsage()
 
     return NextResponse.json({
+      success: true,
       bytes: usage.bytes,
       percent: usage.percent,
-      attachmentsFrozen:
-        settings.attachments_global_freeze === "true"
+      percentUsed: Math.round(usage.percent * 100)
     })
 
   } catch (error:any) {
 
     return NextResponse.json(
-      { error:error?.message },
+      {
+        success:false,
+        error:error?.message || "storage check failed"
+      },
       { status:500 }
     )
 
   }
+
 }
