@@ -104,6 +104,37 @@ export function useLeadData({
     await updateLead({
       ...lead,
       isClosed: true,
+      isCancelled: false,
+      statusLastChangedAt: new Date().toISOString(),
+    });
+  }
+
+  async function markCancelledDeal(id: string) {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead) return;
+
+    await updateLead({
+      ...lead,
+      isClosed: false,
+      isCancelled: true,
+      reminderDate: "",
+      noFollowUp: true,
+      reminderStatus: "none",
+      statusLastChangedAt: new Date().toISOString(),
+    });
+  }
+
+  async function reviveDeal(id: string, reminderDate: string) {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead || !reminderDate) return;
+
+    await updateLead({
+      ...lead,
+      isClosed: false,
+      isCancelled: false,
+      noFollowUp: false,
+      reminderDate,
+      reminderStatus: "scheduled",
       statusLastChangedAt: new Date().toISOString(),
     });
   }
@@ -173,6 +204,8 @@ export function useLeadData({
     createLead,
     updateLead,
     markClosedDeal,
+    markCancelledDeal,
+    reviveDeal,
     deleteLead,
     addContactLog,
     addNote,
