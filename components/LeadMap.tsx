@@ -1,42 +1,41 @@
-// @ts-nocheck
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
-import { getTileId } from "@/lib/mapTile"
+import React,{ useEffect,useRef,useState } from "react"
 
 export default function LeadMap({
-  leads,
-  onOpenLead,
   onPrefillLeadAddress
 }:any){
 
   const mapRef = useRef<any>(null)
   const mapContainerRef = useRef<any>(null)
 
-  const [sales,setSales] = useState<any[]>([])
+  const [markers,setMarkers] = useState<any[]>([])
 
-  async function loadSales(lat:number,lon:number){
+  async function loadNearbyLeads(
+    lat:number,
+    lon:number
+  ){
 
     const res =
-      await fetch("/api/recent-sales",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          lat,
-          lon
-        })
-      })
+      await fetch(
+        "/api/leads-nearby",
+        {
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({
+            lat,
+            lon,
+            radius:1
+          })
+        }
+      )
 
     const data =
       await res.json()
 
-    if(data.sales){
-
-      setSales(data.sales)
-
-    }
+    return data.leads || []
 
   }
 
@@ -47,7 +46,9 @@ export default function LeadMap({
       const L =
         (await import("leaflet")).default
 
-      if(!mapContainerRef.current) return
+      if(!mapContainerRef.current){
+        return
+      }
 
       const map =
         L.map(mapContainerRef.current)
@@ -60,31 +61,59 @@ export default function LeadMap({
         { attribution:"OpenStreetMap" }
       ).addTo(map)
 
-      navigator.geolocation.getCurrentPosition((pos)=>{
+      navigator.geolocation.getCurrentPosition(
+        async(pos)=>{
 
-        const lat =
-          pos.coords.latitude
+          const lat =
+            pos.coords.latitude
 
-        const lon =
-          pos.coords.longitude
+          const lon =
+            pos.coords.longitude
 
-        map.setView([lat,lon],15)
+          map.setView([lat,lon],15)
 
-        loadSales(lat,lon)
+          const leads =
+            await loadNearbyLeads(
+              lat,
+              lon
+            )
 
-      })
+          leads.forEach((lead:any)=>{
 
-      map.on("moveend",()=>{
+            const marker =
+              L.circleMarker(
+                [lead.lat,lead.lon],
+                {
+                  radius:6,
+                  color:"blue"
+                }
+              )
 
-        const center =
-          map.getCenter()
+            marker.addTo(map)
 
-        loadSales(
-          center.lat,
-          center.lng
-        )
+            marker.on("click",()=>{
 
-      })
+              const create =
+                confirm(
+                  `Create lead for\n${lead.address}?`
+                )
+
+              if(create){
+
+                onPrefillLeadAddress({
+                  display_name:lead.address,
+                  lat:lead.lat,
+                  lon:lead.lon
+                })
+
+              }
+
+            })
+
+          })
+
+        }
+      )
 
     }
 
@@ -92,58 +121,12 @@ export default function LeadMap({
 
   },[])
 
-  useEffect(()=>{
-
-    const map =
-      mapRef.current
-
-    if(!map) return
-
-    sales.forEach((home)=>{
-
-      const L =
-        window.L
-
-      const marker =
-        L.circleMarker(
-          [home.lat,home.lon],
-          {
-            radius:6,
-            color:"gold"
-          }
-        )
-
-      marker.addTo(map)
-
-      marker.on("click",()=>{
-
-        const confirmLead =
-          confirm(
-            `Create lead for\n${home.address}?`
-          )
-
-        if(confirmLead){
-
-          onPrefillLeadAddress({
-            display_name:home.address,
-            lat:home.lat,
-            lon:home.lon
-          })
-
-        }
-
-      })
-
-    })
-
-  },[sales])
-
-  return (
+  return(
 
     <div className="border rounded-xl p-4 bg-white">
 
       <div className="font-medium mb-2">
-        Nearby Map
+        Nearby Leads Map
       </div>
 
       <div
