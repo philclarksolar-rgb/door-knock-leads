@@ -20,6 +20,7 @@ export type SearchDraft = {
   chronologicalPreset: "today" | "yesterday" | "thisWeek" | "thisMonth" | "custom";
   dateStart: string;
   dateEnd: string;
+  includeClosedDeals: boolean;
 };
 
 function toDateInputValue(d?: Date | string | null) {
@@ -180,6 +181,20 @@ export default function SearchPanel({
       <div className="inline-flex items-center gap-2 text-lg font-semibold">
         <Search className="h-5 w-5" /> Search
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={searchDraft.includeClosedDeals}
+          onChange={(e) =>
+            setSearchDraft((p) => ({
+              ...p,
+              includeClosedDeals: e.target.checked,
+            }))
+          }
+        />
+        Include closed deals
+      </label>
 
       <div>
         <label className="text-sm font-medium">Search Type</label>
