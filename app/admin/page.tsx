@@ -79,9 +79,7 @@ export default function AdminPage() {
       }
 
       setAuthorized(true);
-
       await loadUsers();
-
       setLoading(false);
     }
 
@@ -121,11 +119,11 @@ export default function AdminPage() {
     });
 
     setShowAddUser(false);
-
     setFirstName("");
     setLastName("");
     setEmail("");
     setPhone("");
+    setRole("rep");
 
     await loadUsers();
 
@@ -136,96 +134,95 @@ export default function AdminPage() {
   if (!authorized) return <div className="p-8">Not authorized</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-
-      <div className="mx-auto max-w-6xl space-y-6">
-
-        <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div className="flex items-center justify-between gap-4">
           <h1 className="text-3xl font-bold">ADMIN</h1>
 
           <button
             onClick={() => setShowAddUser(true)}
-            className="bg-slate-900 text-white px-4 py-2 rounded-xl"
+            className="rounded-2xl bg-slate-900 px-4 py-2 text-white"
           >
             + ADD USER
           </button>
         </div>
 
         {showAddUser && (
-          <div className="bg-white p-6 rounded-2xl shadow space-y-3">
-
+          <div className="space-y-3 rounded-3xl bg-white p-5 shadow-sm">
             <input
               placeholder="First Name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="border p-2 w-full"
+              className="w-full rounded-2xl border px-3 py-2"
             />
 
             <input
               placeholder="Last Name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="border p-2 w-full"
+              className="w-full rounded-2xl border px-3 py-2"
             />
 
             <input
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="border p-2 w-full"
+              className="w-full rounded-2xl border px-3 py-2"
             />
 
             <input
               placeholder="Phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="border p-2 w-full"
+              className="w-full rounded-2xl border px-3 py-2"
             />
 
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="border p-2 w-full"
+              className="w-full rounded-2xl border px-3 py-2"
             >
               <option value="rep">Rep</option>
               <option value="admin">Admin</option>
             </select>
 
-            <button
-              onClick={createUser}
-              className="bg-green-600 text-white px-4 py-2 rounded-xl"
-            >
-              CREATE USER
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={createUser}
+                className="rounded-2xl bg-green-600 px-4 py-2 text-white"
+              >
+                CREATE USER
+              </button>
 
+              <button
+                onClick={() => setShowAddUser(false)}
+                className="rounded-2xl border px-4 py-2"
+              >
+                CANCEL
+              </button>
+            </div>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow overflow-hidden">
-
-          <div className="grid grid-cols-6 gap-4 bg-slate-100 p-3 text-sm font-semibold">
-            <div>First</div>
-            <div>Last</div>
-            <div>Email</div>
+        <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
+          <div className="grid grid-cols-[1.5fr_1.2fr_1fr] gap-3 border-b bg-slate-100 px-4 py-3 text-sm font-semibold">
+            <div>Name</div>
             <div>Phone</div>
             <div>Role</div>
-            <div>Status</div>
           </div>
 
           {rows.map((row) => (
             <div
               key={row.id}
-              className="grid grid-cols-6 gap-4 border-t p-3 text-sm"
+              className="grid grid-cols-[1.5fr_1.2fr_1fr] gap-3 border-b px-4 py-3 text-sm"
             >
-              <div>{row.first_name}</div>
-              <div>{row.last_name}</div>
-              <div>{row.email}</div>
-              <div>{row.phone}</div>
-              <div>{row.role}</div>
-              <div>{row.is_active ? "Active" : "Inactive"}</div>
+              <div className="truncate">
+                {[row.first_name, row.last_name].filter(Boolean).join(" ") || "—"}
+              </div>
+              <div className="truncate">{row.phone || "—"}</div>
+              <div className="truncate">{row.role}</div>
             </div>
           ))}
-
         </div>
       </div>
     </div>
