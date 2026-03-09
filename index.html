@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Door Knock Leads</title>
+<style>
+body{font-family:sans-serif;padding:20px}
+input,button{font-size:16px;padding:8px;margin:4px;width:100%}
+.lead{border:1px solid #ccc;padding:10px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<h2>Door Knock Lead</h2>
+
+<input id="name" placeholder="Full name">
+<input id="phone" placeholder="Phone number">
+<input id="address" placeholder="Address">
+<input id="reminder" type="date">
+
+<button onclick="saveLead()">Save Lead</button>
+
+<h3>Leads</h3>
+<div id="leads"></div>
+
+<script>
+
+const SUPABASE_URL="https://opcpazlrefvbfslzbzpn.supabase.co"
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wY3BhemxyZWZ2YmZzbHpienBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMTgwODksImV4cCI6MjA4ODU5NDA4OX0.5i6C7JM_KONIGQ_iSdHTbnJzG3H3Fr79FfL3rhJi7fs"
+
+async function saveLead(){
+
+let name=document.getElementById("name").value
+let phone=document.getElementById("phone").value
+let address=document.getElementById("address").value
+let reminder=document.getElementById("reminder").value
+
+await fetch(SUPABASE_URL+"/rest/v1/leads",{
+method:"POST",
+headers:{
+apikey:SUPABASE_KEY,
+Authorization:"Bearer "+SUPABASE_KEY,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+full_name:name,
+phone:phone,
+address:address,
+reminder_date:reminder
+})
+})
+
+loadLeads()
+
+}
+
+async function loadLeads(){
+
+let r=await fetch(SUPABASE_URL+"/rest/v1/leads?select=*",
+{
+headers:{
+apikey:SUPABASE_KEY,
+Authorization:"Bearer "+SUPABASE_KEY
+}
+})
+
+let data=await r.json()
+
+let html=""
+
+data.forEach(l=>{
+html+=`<div class="lead">
+<b>${l.full_name}</b><br>
+${l.phone}<br>
+${l.address}<br>
+Reminder: ${l.reminder_date||""}
+</div>`
+})
+
+document.getElementById("leads").innerHTML=html
+
+}
+
+loadLeads()
+
+</script>
+
+</body>
+</html>
