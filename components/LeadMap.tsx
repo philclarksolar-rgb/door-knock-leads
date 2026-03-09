@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Popup,
+} from "react-leaflet";
 
 export type LeadMapLead = {
   id: string;
@@ -29,6 +34,20 @@ function averageCenter(points: LeadMapLead[]) {
   return [avgLat, avgLon] as [number, number];
 }
 
+function mapsQuery(lat: number, lon: number) {
+  return `${lat},${lon}`;
+}
+
+function googleMapsUrl(lat: number, lon: number) {
+  return `https://maps.google.com/?q=${mapsQuery(lat, lon)}`;
+}
+
+function directionsUrl(lat: number, lon: number) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+    mapsQuery(lat, lon)
+  )}&travelmode=driving`;
+}
+
 export default function LeadMap({
   leads,
 }: {
@@ -42,7 +61,7 @@ export default function LeadMap({
     [leads]
   );
 
-  const center = useMemo(() => averageCenter(plotted), [plotted]);
+  const center = useMemo<[number, number]>(() => averageCenter(plotted), [plotted]);
 
   return (
     <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
@@ -58,10 +77,10 @@ export default function LeadMap({
           center={center}
           zoom={13}
           scrollWheelZoom={true}
-          className="h-full w-full"
+          style={{ height: "100%", width: "100%" }}
         >
           <TileLayer
-            attribution='&copy; OpenStreetMap contributors'
+            attribution="&copy; OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
@@ -73,19 +92,34 @@ export default function LeadMap({
               pathOptions={{ weight: 2 }}
             >
               <Popup>
-                <div className="space-y-1">
-                  <div className="font-semibold">{lead.fullName || "Unnamed Lead"}</div>
-                  <div className="text-sm">{lead.address || "No address"}</div>
-                  {lead.lat != null && lead.lon != null ? (
+                <div className="space-y-2 min-w-[180px]">
+                  <div className="font-semibold">
+                    {lead.fullName || "Unnamed Lead"}
+                  </div>
+
+                  <div className="text-sm">
+                    {lead.address || "No address"}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
                     <a
-                      href={`https://maps.google.com/?q=${lead.lat},${lead.lon}`}
+                      href={googleMapsUrl(lead.lat as number, lead.lon as number)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm underline"
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-center text-sm text-white"
                     >
                       Open in Maps
                     </a>
-                  ) : null}
+
+                    <a
+                      href={directionsUrl(lead.lat as number, lead.lon as number)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg bg-blue-600 px-3 py-2 text-center text-sm text-white"
+                    >
+                      Navigate to Lead
+                    </a>
+                  </div>
                 </div>
               </Popup>
             </CircleMarker>
