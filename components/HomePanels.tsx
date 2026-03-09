@@ -66,6 +66,8 @@ export default function HomePanels({
             lat: lead.lat,
             lon: lead.lon,
             createdAt: lead.createdAt,
+            ownerUserId: lead.ownerUserId,
+            creatorName: lead.creatorName,
           }))}
           onOpenLead={(id: string) => leadData.setSelectedLeadId(id)}
           onPrefillLeadAddress={openCreateWithAddress}
