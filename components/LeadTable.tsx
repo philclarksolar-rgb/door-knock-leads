@@ -7,6 +7,7 @@ export type LeadTableLead = {
   id: string;
   fullName: string;
   createdAt: string;
+  isClosed: boolean;
 };
 
 function formatDate(value?: string | null) {
@@ -54,10 +55,16 @@ export default function LeadTable({
           <button
             key={lead.id}
             onClick={() => onSelectLead(lead.id)}
-            className="grid w-full grid-cols-[1.8fr_1fr] items-center gap-3 border-b px-3 py-3 text-left text-sm hover:bg-slate-50"
+            className={`grid w-full grid-cols-[1.8fr_1fr] items-center gap-3 border-b px-3 py-3 text-left text-sm hover:bg-slate-50 ${
+              lead.isClosed ? "bg-green-50 ring-1 ring-inset ring-green-500" : ""
+            }`}
           >
-            <div className="truncate font-medium">{lead.fullName || "—"}</div>
-            <div className="text-slate-500">{formatDate(lead.createdAt)}</div>
+            <div className={`truncate font-medium ${lead.isClosed ? "text-green-700" : ""}`}>
+              {lead.fullName || "—"}
+            </div>
+            <div className={`text-slate-500 ${lead.isClosed ? "text-green-700" : ""}`}>
+              {formatDate(lead.createdAt)}
+            </div>
           </button>
         ))
       )}
