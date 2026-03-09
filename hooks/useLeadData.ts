@@ -64,17 +64,17 @@ export function useLeadData({
         setLoadingLeads(true);
 
         const leadsFilter =
-          role === "admin"
+          role === "admin" || role === "master_admin"
             ? "select=*&order=created_at.desc"
             : `select=*&owner_user_id=eq.${sessionUserId}&order=created_at.desc`;
 
         const notesFilter =
-          role === "admin"
+          role === "admin" || role === "master_admin"
             ? "select=*&order=created_at.asc"
             : `select=*&owner_user_id=eq.${sessionUserId}&order=created_at.asc`;
 
         const contactFilter =
-          role === "admin"
+          role === "admin" || role === "master_admin"
             ? "select=*&order=created_at.asc"
             : `select=*&owner_user_id=eq.${sessionUserId}&order=created_at.asc`;
 
@@ -144,10 +144,14 @@ export function useLeadData({
   const filtered = useMemo(() => {
     let matched = leads;
 
+    if (!searchDraft.includeClosedDeals) {
+      matched = matched.filter((lead) => !lead.isClosed);
+    }
+
     if (searchDraft.type === "specific") {
       const q = normalizeText(searchDraft.text);
       if (q) {
-        matched = leads.filter((lead) =>
+        matched = matched.filter((lead) =>
           [lead.fullName, lead.address, lead.phone, lead.email].some((field) =>
             normalizeText(field).includes(q)
           )
@@ -160,7 +164,7 @@ export function useLeadData({
       if (!ref) {
         matched = [];
       } else {
-        matched = leads.filter(
+        matched = matched.filter(
           (lead) =>
             lead.lat != null &&
             lead.lon != null &&
@@ -176,7 +180,7 @@ export function useLeadData({
         searchDraft.dateStart,
         searchDraft.dateEnd
       );
-      matched = leads.filter((lead) => {
+      matched = matched.filter((lead) => {
         const created = new Date(lead.createdAt);
         if (rangeStart && created < rangeStart) return false;
         if (rangeEnd && created > rangeEnd) return false;
@@ -232,6 +236,7 @@ export function useLeadData({
       mapsUrl: leadDraft.verifiedAddress.mapsUrl,
       createdAt: now,
       updatedAt: now,
+      isClosed: false,
       ownerUserId: sessionUserId,
       notes: [],
       contactLog: [],
@@ -323,6 +328,12 @@ export function useLeadData({
     } catch (err: any) {
       setDbError(err?.message || "Could not update lead.");
     }
+  }
+
+  async function markClosedDeal(id: string) {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead) return;
+    await updateLead({ ...lead, isClosed: true });
   }
 
   async function deleteLead(id: string) {
@@ -455,6 +466,7 @@ export function useLeadData({
     selectedLead,
     createLead,
     updateLead,
+    markClosedDeal,
     deleteLead,
     addContactLog,
     addNote,
