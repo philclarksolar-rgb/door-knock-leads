@@ -1,7 +1,8 @@
 import { mapLeadToRow, mapRowToLead, type Lead } from "../leadUtils";
 import { ensureSupabaseEnv, getSupabaseUrl, supabaseHeaders } from "../supabaseRest";
 
-export async function updateLeadRecord(next: Lead, sessionUserId: string) {
+export async function updateLeadRecord(next: Lead, fallbackOwnerUserId: string) {
+  if (!fallbackOwnerUserId) throw new Error("You must be signed in.");
 
   ensureSupabaseEnv();
   const SUPABASE_URL = getSupabaseUrl();
@@ -12,7 +13,9 @@ export async function updateLeadRecord(next: Lead, sessionUserId: string) {
       ...supabaseHeaders(),
       Prefer: "return=representation",
     },
-    body: JSON.stringify(mapLeadToRow(next, sessionUserId)),
+    body: JSON.stringify(
+      mapLeadToRow(next, next.ownerUserId || fallbackOwnerUserId)
+    ),
   });
 
   if (!res.ok) throw new Error("Could not update lead.");
@@ -24,4 +27,16 @@ export async function updateLeadRecord(next: Lead, sessionUserId: string) {
   updated.contactLog = next.contactLog;
 
   return updated;
+}
+
+export async function deleteLeadRecord(id: string) {
+  ensureSupabaseEnv();
+  const SUPABASE_URL = getSupabaseUrl();
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+    method: "DELETE",
+    headers: supabaseHeaders(),
+  });
+
+  if (!res.ok) throw new Error("Could not delete lead.");
 }
