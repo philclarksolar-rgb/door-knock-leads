@@ -2,14 +2,21 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getTileBounds, getTile } from "@/lib/rentcastTiles";
+import { getTileBounds, getTile, getRentcastTile } from "@/lib/rentcastTiles";
 import { checkRequestAllowed } from "@/lib/recentSalesGovernor";
-import { getRentcastTile } from "@/lib/rentcastTiles";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error("supabaseKey is required.");
+  }
+
+  return createClient(url, key);
+}
 
 export async function POST(req: Request) {
   try {
@@ -23,13 +30,19 @@ export async function POST(req: Request) {
       );
     }
 
+    const supabase = getSupabaseAdmin();
+
     const { tileLat, tileLon } = getTile(lat, lng);
 
-    const { data: cached } = await supabase
+    const { data: cached, error: cacheError } = await supabase
       .from("rentcast_cache")
       .select("*")
       .eq("tile_lat", tileLat)
       .eq("tile_lon", tileLon);
+
+    if (cacheError) {
+      console.error(cacheError);
+    }
 
     if (cached && cached.length > 0) {
       return NextResponse.json({
@@ -59,7 +72,13 @@ export async function POST(req: Request) {
         ...sale,
       }));
 
-      await supabase.from("rentcast_cache").insert(rows);
+      const { error: insertError } = await supabase
+        .from("rentcast_cache")
+        .insert(rows);
+
+      if (insertError) {
+        console.error(insertError);
+      }
     }
 
     return NextResponse.json({
