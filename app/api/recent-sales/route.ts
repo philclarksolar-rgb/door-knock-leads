@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import { getTileId, getTileBounds } from "@/lib/mapTile"
+import { getTileBounds, getTile } from "@/lib/rentcastTiles"
 import { checkRequestAllowed } from "@/lib/recentSalesGovernor"
 import { getRentcastTile } from "@/lib/rentcastTiles"
 
@@ -16,29 +16,27 @@ export async function GET(req: Request) {
     const lon = Number(searchParams.get("lon"))
 
     if (!lat || !lon) {
-      return new Response(JSON.stringify({ error: "Missing coordinates" }), {
-        status: 400
-      })
+      return new Response(
+        JSON.stringify({ error: "Missing coordinates" }),
+        { status: 400 }
+      )
     }
 
-    // Determine tile
-    const tileId = getTileId(lat, lon)
+    const { tileLat, tileLon } = getTile(lat, lon)
 
-    // Check cached data first
     const { data: cached } = await supabase
-      .from("recent_sales_cache")
+      .from("rentcast_cache")
       .select("*")
-      .eq("tile_id", tileId)
-      .single()
+      .eq("tile_lat", tileLat)
+      .eq("tile_lon", tileLon)
 
-    if (cached) {
+    if (cached && cached.length > 0) {
       return Response.json({
         source: "cache",
-        sales: cached.sales
+        sales: cached
       })
     }
 
-    // Check if API request allowed
     const allowed = await checkRequestAllowed()
 
     if (!allowed) {
@@ -48,23 +46,27 @@ export async function GET(req: Request) {
       })
     }
 
-    // Determine tile bounds
-    const bounds = getTileBounds(tileId)
+    const bounds = getTileBounds(tileLat, tileLon)
 
-    // Fetch from RentCast
     const sales = await getRentcastTile(bounds)
 
-    // Cache result
-    await supabase.from("recent_sales_cache").insert({
-      tile_id: tileId,
-      sales
-    })
+    if (sales.length > 0) {
+      const rows = sales.map((sale: any) => ({
+        tile_lat: tileLat,
+        tile_lon: tileLon,
+        cached_at: new Date().toISOString(),
+        ...sale
+      }))
+
+      await supabase
+        .from("rentcast_cache")
+        .insert(rows)
+    }
 
     return Response.json({
       source: "rentcast",
       sales
     })
-
   } catch (err) {
     console.error(err)
 
