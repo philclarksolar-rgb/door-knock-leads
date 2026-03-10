@@ -1,112 +1,76 @@
-import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getTileId, getTileBounds } from "@/lib/mapTile"
 import { checkRequestAllowed } from "@/lib/recentSalesGovernor"
+import { getRentcastTile } from "@/lib/rentcastTiles"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export async function POST(req:Request){
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url)
 
-  try{
+    const lat = Number(searchParams.get("lat"))
+    const lon = Number(searchParams.get("lon"))
 
-    const body = await req.json()
-
-    const { lat, lon } = body
-
-    const tileId =
-      getTileId(lat,lon)
-
-    /* check cache */
-
-    const { data:cached } =
-      await supabase
-        .from("rentcast_cache")
-        .select("*")
-        .eq("tile_id",tileId)
-
-    if(cached && cached.length > 0){
-
-      return NextResponse.json({
-        source:"cache",
-        sales:cached
+    if (!lat || !lon) {
+      return new Response(JSON.stringify({ error: "Missing coordinates" }), {
+        status: 400
       })
-
     }
 
-    /* check API governor */
+    // Determine tile
+    const tileId = getTileId(lat, lon)
 
-    const allowed =
-      await checkRequestAllowed()
+    // Check cached data first
+    const { data: cached } = await supabase
+      .from("recent_sales_cache")
+      .select("*")
+      .eq("tile_id", tileId)
+      .single()
 
-    if(!allowed){
-
-      return NextResponse.json({
-        source:"blocked",
-        sales:[]
+    if (cached) {
+      return Response.json({
+        source: "cache",
+        sales: cached.sales
       })
-
     }
 
-    const bounds =
-      getTileBounds(lat,lon)
+    // Check if API request allowed
+    const allowed = await checkRequestAllowed()
 
-    const url =
-      `https://api.rentcast.io/v1/properties/sale` +
-      `?minLatitude=${bounds.minLat}` +
-      `&maxLatitude=${bounds.maxLat}` +
-      `&minLongitude=${bounds.minLon}` +
-      `&maxLongitude=${bounds.maxLon}` +
-      `&daysSinceSold=180`
-
-    const response =
-      await fetch(url,{
-        headers:{
-          "X-Api-Key":
-          process.env.RENTCAST_API_KEY!
-        }
+    if (!allowed) {
+      return Response.json({
+        source: "blocked",
+        sales: []
       })
-
-    const data =
-      await response.json()
-
-    if(data?.properties){
-
-      for(const home of data.properties){
-
-        await supabase
-          .from("rentcast_cache")
-          .insert({
-
-            lat:home.latitude,
-            lon:home.longitude,
-            address:home.address,
-            sale_date:home.lastSaleDate,
-            sale_price:home.lastSalePrice,
-            tile_id:tileId
-
-          })
-
-      }
-
     }
 
-    return NextResponse.json({
-      source:"rentcast",
-      sales:data.properties || []
+    // Determine tile bounds
+    const bounds = getTileBounds(tileId)
+
+    // Fetch from RentCast
+    const sales = await getRentcastTile(bounds)
+
+    // Cache result
+    await supabase.from("recent_sales_cache").insert({
+      tile_id: tileId,
+      sales
     })
 
-  }catch(error:any){
+    return Response.json({
+      source: "rentcast",
+      sales
+    })
 
-    return NextResponse.json(
-      {
-        error:error?.message
-      },
-      { status:500 }
+  } catch (err) {
+    console.error(err)
+
+    return new Response(
+      JSON.stringify({ error: "Failed to load recent sales" }),
+      { status: 500 }
     )
-
   }
-
 }
