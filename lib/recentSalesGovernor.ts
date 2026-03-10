@@ -77,6 +77,31 @@ export async function logApiUsage({
   if (error) throw error;
 }
 
+/**
+ * Simple boolean export used by the current /api/recent-sales route.
+ * This preserves your existing governor system while satisfying the build.
+ */
+export async function checkRequestAllowed() {
+  let settings = await getSystemSettings();
+  settings = await resetMonthIfNeeded(settings);
+
+  const requestCount = await getMonthlyRequestCount();
+
+  const globalFreeze = boolFromSetting(settings.rentcast_global_freeze);
+  const paidLockUntilReset = boolFromSetting(
+    settings.rentcast_paid_lock_until_reset
+  );
+
+  if (globalFreeze) return false;
+  if (paidLockUntilReset) return false;
+
+  // Non-admin logic is handled more fully by evaluateGovernor,
+  // but this boolean export is used by the simpler current route.
+  if (requestCount >= 45) return false;
+
+  return true;
+}
+
 export async function evaluateGovernor({
   lat,
   lng,
@@ -86,7 +111,6 @@ export async function evaluateGovernor({
   adminApproval,
   disableUntilReset,
 }: any) {
-
   const { tileLat, tileLon } = getTile(lat, lng);
 
   let settings = await getSystemSettings();
@@ -147,7 +171,6 @@ export async function evaluateGovernor({
   }
 
   if (requestCount >= 45 && !isAdmin) {
-
     await setSystemSetting("rentcast_global_freeze", "true");
 
     if (alertMonth !== nowMonth || !alertPending) {
@@ -168,7 +191,6 @@ export async function evaluateGovernor({
   }
 
   if (requestCount >= 50) {
-
     if (!isAdmin) {
       return {
         kind: "blocked",
