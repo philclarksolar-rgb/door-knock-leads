@@ -48,6 +48,8 @@ export type Lead = {
   utilityBillPath?: string | null;
   statusLastChangedAt?: string | null;
   ownerUserId?: string | null;
+  createdByUserId?: string | null;
+  creatorName?: string | null;
   notes: NoteEntry[];
   contactLog: ContactEntry[];
 };
@@ -206,6 +208,8 @@ export function mapRowToLead(row: any): Lead {
     utilityBillPath: row.utility_bill_path || null,
     statusLastChangedAt: row.status_last_changed_at || null,
     ownerUserId: row.owner_user_id || null,
+    createdByUserId: row.created_by_user_id || null,
+    creatorName: row.created_by_name || null,
     notes: [],
     contactLog: [],
   };
@@ -233,6 +237,8 @@ export function mapLeadToRow(lead: Lead, ownerUserId: string) {
     utility_bill_path: lead.utilityBillPath || null,
     status_last_changed_at: lead.statusLastChangedAt || null,
     owner_user_id: ownerUserId,
+    created_by_user_id: lead.createdByUserId || ownerUserId,
+    created_by_name: lead.creatorName || null,
     updated_at: new Date().toISOString(),
   };
 }
