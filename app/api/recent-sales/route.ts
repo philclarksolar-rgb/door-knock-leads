@@ -1,78 +1,42 @@
-import { createClient } from "@supabase/supabase-js"
-import { getTileBounds, getTile } from "@/lib/rentcastTiles"
-import { checkRequestAllowed } from "@/lib/recentSalesGovernor"
-import { getRentcastTile } from "@/lib/rentcastTiles"
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { getTileId, getTileBounds } from "@/lib/mapTile";
+import { checkRequestAllowed } from "@/lib/recentSalesGovernor";
+import { getRentcastTile } from "@/lib/rentcastTiles";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url)
+    const body = await req.json();
+    const { lat, lng, radius, userId, isAdmin } = body;
 
-    const lat = Number(searchParams.get("lat"))
-    const lon = Number(searchParams.get("lon"))
-
-    if (!lat || !lon) {
-      return new Response(
-        JSON.stringify({ error: "Missing coordinates" }),
-        { status: 400 }
-      )
-    }
-
-    const { tileLat, tileLon } = getTile(lat, lon)
-
-    const { data: cached } = await supabase
-      .from("rentcast_cache")
-      .select("*")
-      .eq("tile_lat", tileLat)
-      .eq("tile_lon", tileLon)
-
-    if (cached && cached.length > 0) {
-      return Response.json({
-        source: "cache",
-        sales: cached
-      })
-    }
-
-    const allowed = await checkRequestAllowed()
+    const { allowed } = await checkRequestAllowed(userId, isAdmin);
 
     if (!allowed) {
-      return Response.json({
-        source: "blocked",
-        sales: []
-      })
+      return NextResponse.json({
+        blocked: true,
+        reason: "API limit reached",
+      });
     }
 
-    const bounds = getTileBounds(tileLat, tileLon)
+    const tileId = getTileId(lat, lng);
 
-    const sales = await getRentcastTile(bounds)
+    const bounds = getTileBounds(tileId);
 
-    if (sales.length > 0) {
-      const rows = sales.map((sale: any) => ({
-        tile_lat: tileLat,
-        tile_lon: tileLon,
-        cached_at: new Date().toISOString(),
-        ...sale
-      }))
+    const sales = await getRentcastTile(bounds);
 
-      await supabase
-        .from("rentcast_cache")
-        .insert(rows)
-    }
-
-    return Response.json({
-      source: "rentcast",
-      sales
-    })
+    return NextResponse.json({
+      sales,
+      tileId,
+    });
   } catch (err) {
-    console.error(err)
-
-    return new Response(
-      JSON.stringify({ error: "Failed to load recent sales" }),
-      { status: 500 }
-    )
+    console.error(err);
+    return NextResponse.json({ error: "recent-sales failed" }, { status: 500 });
   }
 }
