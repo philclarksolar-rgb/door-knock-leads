@@ -1,29 +1,25 @@
-import { NextResponse } from "next/server"
-import { getStorageUsage } from "@/lib/storageMonitor"
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET() {
-
   try {
+    const { data, error } = await supabase.storage.getBucket("attachments");
 
-    const usage = await getStorageUsage()
+    if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      bytes: usage.bytes,
-      percent: usage.percent,
-      percentUsed: Math.round(usage.percent * 100)
-    })
-
-  } catch (error:any) {
-
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
-      {
-        success:false,
-        error:error?.message || "storage check failed"
-      },
-      { status:500 }
-    )
-
+      { error: "storage-status failed" },
+      { status: 500 }
+    );
   }
-
 }
